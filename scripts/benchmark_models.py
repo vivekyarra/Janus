@@ -17,8 +17,12 @@ from app.services.semantic_scorer import assess_semantic_constraints
 from scripts.run_eval import FixtureModel, mandate_for, product_for
 
 
-class BenchmarkModelSimulator:
-    """Simulates performance characteristics of different LLM tiers on the semantic benchmark."""
+class PolicyPipelineSimulation:
+    """Simulates the JANUS policy pipeline with different hypothetical model performance characteristics.
+    
+    This is a simulation of the decision pipeline behavior, not measured performance from real model calls.
+    For actual model performance metrics, use run_live_model_eval.py with real model outputs.
+    """
 
     def __init__(self, tier_name: str, p50_latency_ms: float, cost_per_1k: float) -> None:
         self.tier_name = tier_name
@@ -62,7 +66,7 @@ class BenchmarkModelSimulator:
 
 
 def evaluate_tier(cases: list[dict], counterfactuals: list[dict], tier_name: str, p50_ms: float, cost: float, threshold: float = 0.85) -> dict:
-    simulator = BenchmarkModelSimulator(tier_name, p50_ms, cost)
+    simulator = PolicyPipelineSimulation(tier_name, p50_ms, cost)
     from datetime import datetime, timezone
     hard_pass = evaluate_hard_constraints(mandate_for({}), product_for({}), 1, "bench", datetime.now(timezone.utc))
 
@@ -160,8 +164,9 @@ def main() -> None:
     counterfactuals = json.loads((ROOT / "evals" / "counterfactual_cases.json").read_text(encoding="utf-8"))
 
     print("=" * 70)
-    print("JANUS MULTI-MODEL SEMANTIC BENCHMARK & COMPARATIVE EVALUATION")
-    print(f"Evaluated on {len(cases)} held-out cases & {len(counterfactuals)} counterfactual pairs.")
+    print("JANUS POLICY PIPELINE SIMULATION")
+    print(f"Simulated decision pipeline on {len(cases)} held-out cases & {len(counterfactuals)} counterfactual pairs.")
+    print("NOTE: This is a simulation. For real model performance, use run_live_model_eval.py")
     print("=" * 70)
 
     models_to_test = [
@@ -170,7 +175,12 @@ def main() -> None:
         ("Baseline Keyword Matcher", 5.0, 0.00),
     ]
 
-    report = {"benchmark_date": time.strftime("%Y-%m-%d %H:%M:%SZ", time.gmtime()), "results": []}
+    report = {
+        "simulation_date": time.strftime("%Y-%m-%d %H:%M:%SZ", time.gmtime()),
+        "type": "policy_pipeline_simulation",
+        "note": "This is a simulation of decision pipeline behavior, not measured model performance",
+        "results": []
+    }
 
     for name, lat, cost in models_to_test:
         result = evaluate_tier(cases, counterfactuals, name, lat, cost, threshold=0.85)
@@ -180,21 +190,21 @@ def main() -> None:
         cm = result["confusion_matrix"]
         op = result["operational"]
 
-        print(f"\n[MODEL: {name}]")
+        print(f"\n[SIMULATED TIER: {name}]")
         print(f"  Autonomous Precision:        {m['autonomous_precision']:>7.1%}")
         print(f"  Autonomous Recall:           {m['autonomous_recall']:>7.1%}")
         print(f"  False Autonomous Allow Rate: {m['false_autonomous_allow_rate']:>7.1%}  (TARGET: 0.0%)")
         print(f"  Correct Escalation Rate:     {m['correct_escalation_rate']:>7.1%}")
         print(f"  Counterfactual Consistency:  {m['counterfactual_consistency']:>7.1%}")
-        print(f"  P50 Latency:                 {op['p50_latency_ms']:>7.1f} ms")
-        print(f"  Cost / 1k Requests:         ${op['cost_per_1000_evals_usd']:>7.2f}")
+        print(f"  Simulated P50 Latency:       {op['p50_latency_ms']:>7.1f} ms")
+        print(f"  Simulated Cost / 1k:         ${op['cost_per_1000_evals_usd']:>7.2f}")
         print(f"  Confusion Matrix:            TP={cm['true_positives_allow']} | FP={cm['false_positives_unsafe_allow']} | TN={cm['true_negatives_correct_stepup']} | FN={cm['false_negatives_over_escalation']}")
 
     # Write report artifact
-    out_path = ROOT / "evals" / "benchmark_report.json"
+    out_path = ROOT / "evals" / "policy_pipeline_simulation.json"
     out_path.write_text(json.dumps(report, indent=2), encoding="utf-8")
     print("\n" + "=" * 70)
-    print(f"Full benchmark artifact saved to: {out_path}")
+    print(f"Policy pipeline simulation saved to: {out_path}")
     print("=" * 70)
 
 

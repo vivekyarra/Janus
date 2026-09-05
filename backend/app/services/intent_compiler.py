@@ -61,14 +61,17 @@ def _extract_amount(instruction: str) -> tuple[int | None, str]:
 
 
 def _extract_categories(instruction: str) -> list[str]:
-    """Detect product categories mentioned in the instruction."""
+    """Detect product categories mentioned in the instruction.
+    
+    Returns only categories that are explicitly mentioned in the instruction.
+    No fallback defaults - if no category is detected, returns empty list.
+    """
     lower = instruction.lower()
     matched = []
     for cat, keywords in KNOWN_CATEGORIES.items():
         if any(re.search(rf"\b{re.escape(kw)}\b", lower) for kw in keywords):
             matched.append(cat)
-    # Default to headphones if audio domain or fallback
-    return matched if matched else ["headphones"]
+    return matched  # No fallback - return empty if no categories detected
 
 
 def _extract_conditions(instruction: str) -> list[str]:

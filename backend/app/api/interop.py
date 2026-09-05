@@ -61,8 +61,11 @@ def get_acp_checkout(proposal_id: str, db: Session = Depends(get_db)):
 
 @router.post("/x402/verify")
 def verify_x402(authorization: str | None = Header(default=None)):
-    """Verify HTTP 402 payment header handshake for machine-to-machine checkout."""
+    """Verify HTTP 402 payment header handshake for machine-to-machine checkout.
+    
+    NOTE: Returns 501 Not Implemented as x402 is out of scope for current build.
+    """
     result = verify_x402_handshake(authorization)
     if result["http_code"] != 200:
-        raise HTTPException(status_code=402, detail=result)
+        raise HTTPException(status_code=result["http_code"], detail=result)
     return result

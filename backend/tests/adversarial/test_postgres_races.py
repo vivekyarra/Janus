@@ -112,3 +112,110 @@ def test_two_execution_race_creates_one_order(pg_sessions) -> None:
         thread.join(5)
     assert sorted(outcomes) == ["blocked", "executed"]
     assert len(adapter.calls) == 1
+
+
+def seed_execution_x20(factory):
+    """Seed a mandate and 20 proposals for x20 concurrent test."""
+    with factory() as db:
+        seed_catalog(db)
+        now = datetime.now(timezone.utc).replace(microsecond=0)
+        values = {
+            "id": "mnd_x20",
+            "instruction_text": "Buy headphones under INR 20,000",
+            "hard_constraints": {
+                "max_amount_paise": 2_000_000,
+                "allowed_currencies": ["INR"],
+                "allowed_merchants": ["merchant_demo"],
+                "allowed_categories": ["headphones"],
+                "allowed_conditions": ["new"],
+                "max_quantity": 1,
+                "max_executions": 1
+            },
+            "semantic_constraints": [],
+            "expires_at": now + timedelta(hours=1),
+            "version": 1,
+            "max_executions": 1
+        }
+        signer = SignatureService()
+        canonical = canonical_json_bytes(canonical_mandate_payload(values))
+        mandate = Mandate(
+            **values,
+            signed_version=1,
+            status="ACTIVE",
+            execution_count=0,
+            canonical_payload=canonical.decode(),
+            payload_hash=payload_sha256(canonical),
+            signature=signer.sign(canonical),
+            public_key=signer.public_key_pem
+        )
+        db.add(mandate)
+        
+        # Create 20 proposals with the same agent_request_id to test idempotency
+        for index in range(20):
+            db.add(CheckoutProposal(
+                id=f"prp_x20_{index}",
+                mandate_id=mandate.id,
+                mandate_version=1,
+                product_id="prod_a",
+                quantity=1,
+                agent_request_id="x20-concurrent-test",  # Same request ID for all
+                expected_amount_paise=1849900,
+                currency="INR",
+                status="ALLOWED",
+                decision={}
+            ))
+        db.commit()
+
+
+def test_x20_concurrent_execution_creates_single_razorpay_order(pg_sessions) -> None:
+    """Test that 20 concurrent execution attempts with the same agent_request_id result in exactly one Razorpay order.
+    
+    This tests both idempotency and concurrency safety:
+    - All 20 proposals share the same agent_request_id
+    - Only one should succeed in creating a Razorpay order
+    - The other 19 should be blocked as duplicates
+    """
+    seed_execution_x20(pg_sessions)
+    adapter = FakeRazorpay()
+    barrier = threading.Barrier(20)
+    outcomes = []
+    lock = threading.Lock()
+
+    def run(proposal_id):
+        barrier.wait()  # All threads start at the same time
+        try:
+            with pg_sessions() as db:
+                ExecutionService(db, adapter).execute(proposal_id)
+            with lock:
+                outcomes.append("executed")
+        except AuthorizationDenied:
+            with lock:
+                outcomes.append("blocked")
+        except Exception as e:
+            with lock:
+                outcomes.append(f"error: {type(e).__name__}")
+
+    # Launch 20 concurrent threads
+    threads = [threading.Thread(target=run, args=(f"prp_x20_{index}",)) for index in range(20)]
+    for thread in threads:
+        thread.start()
+    for thread in threads:
+        thread.join(10)  # Give more time for 20 threads
+
+    # Verify results
+    executed_count = sum(1 for o in outcomes if o == "executed")
+    blocked_count = sum(1 for o in outcomes if o == "blocked")
+    error_count = sum(1 for o in outcomes if o.startswith("error"))
+    
+    print(f"x20 Test Results: {executed_count} executed, {blocked_count} blocked, {error_count} errors")
+    
+    # Exactly one should execute, 19 should be blocked
+    assert executed_count == 1, f"Expected 1 execution, got {executed_count}"
+    assert blocked_count == 19, f"Expected 19 blocked, got {blocked_count}"
+    assert error_count == 0, f"Expected 0 errors, got {error_count}"
+    
+    # Only one Razorpay order should be created
+    assert len(adapter.calls) == 1, f"Expected 1 Razorpay call, got {len(adapter.calls)}"
+    
+    # Verify the Razorpay order was created with the correct amount
+    assert adapter.calls[0]["amount"] == 18499  # ₹18,499 in rupees

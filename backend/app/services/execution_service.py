@@ -80,6 +80,7 @@ class ExecutionService:
         except RazorpayOrderCreationFailed as exc:
             # CRITICAL: Rollback the execution reservation on Razorpay failure.
             # The mandate slot must NOT be consumed by a failed external call.
+            # This includes timeouts, network errors, and Razorpay API failures.
             mandate = self.db.scalar(select(Mandate).where(Mandate.id == proposal.mandate_id).with_for_update())
             if mandate is not None:
                 mandate.execution_count = previous_execution_count
@@ -94,6 +95,9 @@ class ExecutionService:
                 "razorpay_called": True,
                 "outcome": "failed_closed",
                 "execution_count_rolled_back": True,
+                "previous_execution_count": previous_execution_count,
+                "restored_execution_count": mandate.execution_count if mandate else None,
+                "timeout_reconciliation": exc.reason_code in {"RAZORPAY_TIMEOUT", "NETWORK_ERROR"},
             })
             self.db.commit()
             raise

@@ -41,8 +41,23 @@ class RazorpayAdapter:
             if not isinstance(order.get("id"), str) or not order["id"].startswith("order_"):
                 raise ValueError("Razorpay response did not contain an order id")
             return order
-        except (httpx.HTTPError, ValueError) as exc:
-            raise RazorpayOrderCreationFailed("Razorpay order creation failed closed") from exc
+        except Exception as exc:
+            # Categorize errors for timeout reconciliation
+            error_str = str(exc).lower()
+            exc_type = type(exc).__name__
+            
+            if "timeout" in error_str or exc_type == "TimeoutException":
+                # Specific timeout error for reconciliation
+                raise RazorpayOrderCreationFailed("RAZORPAY_TIMEOUT") from exc
+            elif "network" in error_str or "connection" in error_str or exc_type in ["ConnectError", "NetworkError"]:
+                # Network-related errors (DNS, connection refused, etc.)
+                raise RazorpayOrderCreationFailed("NETWORK_ERROR") from exc
+            elif hasattr(exc, "response") and hasattr(exc.response, "status_code"):
+                # HTTP errors from Razorpay (4xx, 5xx)
+                raise RazorpayOrderCreationFailed(f"RAZORPAY_HTTP_ERROR_{exc.response.status_code}") from exc
+            else:
+                # Other HTTP errors
+                raise RazorpayOrderCreationFailed("RAZORPAY_UNKNOWN_ERROR") from exc
 
     def fetch_payment(self, payment_id: str) -> dict[str, Any]:
         if not self.key_id.startswith("rzp_test_") or not self.key_secret:

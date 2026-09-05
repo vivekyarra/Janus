@@ -7,6 +7,7 @@ from datetime import datetime, timezone
 from typing import Any
 
 from app.db.models import CheckoutProposal, Mandate, Product
+from app.services.signature_service import SignatureService, canonical_json_bytes, canonical_mandate_payload, payload_sha256
 
 
 def export_ap2_mandate(mandate: Mandate) -> dict[str, Any]:
@@ -61,20 +62,82 @@ def export_ap2_mandate(mandate: Mandate) -> dict[str, Any]:
 
 
 def import_ap2_mandate(envelope: dict[str, Any]) -> dict[str, Any]:
-    """Ingest external AP2 delegation token into JANUS mandate specification."""
+    """Ingest external AP2 delegation token into JANUS mandate specification.
+    
+    Validates:
+    - Protocol version
+    - Required authority fields
+    - Cryptographic signature (if present)
+    
+    Returns a mandate payload that can be used to create a JANUS mandate.
+    """
     if envelope.get("protocol") != "AP2/1.0":
         raise ValueError("Unsupported protocol: expected AP2/1.0")
 
     hard = envelope.get("hard_bounds", {})
     semantic = envelope.get("semantic_intent_clauses", [])
-
+    
+    # Validate required authority fields
+    missing_fields = []
+    if "max_amount_paise" not in hard or hard["max_amount_paise"] is None:
+        missing_fields.append("max_amount_paise")
+    if "allowed_categories" not in hard or not hard["allowed_categories"]:
+        missing_fields.append("allowed_categories")
+    if "allowed_merchants" not in hard or not hard["allowed_merchants"]:
+        missing_fields.append("allowed_merchants")
+    
+    if missing_fields:
+        raise ValueError(f"AP2 envelope missing required authority fields: {', '.join(missing_fields)}")
+    
+    # Verify signature if cryptographic proof is present
+    crypto_proof = envelope.get("cryptographic_proof", {})
+    if crypto_proof:
+        signature_b64 = crypto_proof.get("signature_b64")
+        public_key_pem = crypto_proof.get("public_key_pem")
+        canonical_hash = crypto_proof.get("canonical_payload_sha256")
+        
+        if not all([signature_b64, public_key_pem, canonical_hash]):
+            raise ValueError("AP2 envelope has incomplete cryptographic proof")
+        
+        # Reconstruct and verify the payload
+        reconstructed_payload = {
+            "id": envelope.get("delegation_id"),
+            "created_by_subject": envelope.get("principal", {}).get("subject"),
+            "instruction_text": f"AP2 Delegated Authority from {envelope.get('principal', {}).get('subject', 'human')}",
+            "hard_constraints": {
+                "max_amount_paise": hard["max_amount_paise"],
+                "allowed_currencies": [hard.get("currency", "INR")],
+                "allowed_merchants": hard["allowed_merchants"],
+                "allowed_categories": hard["allowed_categories"],
+                "allowed_conditions": hard.get("allowed_conditions", ["new"]),
+                "max_quantity": hard.get("max_quantity", 1),
+                "max_executions": hard.get("max_executions", 1),
+            },
+            "semantic_constraints": [
+                {"id": c.get("clause_id", f"clause_{i}"), "text": c.get("predicate", "")}
+                for i, c in enumerate(semantic)
+            ],
+            "expires_at": envelope.get("state", {}).get("expires_at"),
+            "version": envelope.get("state", {}).get("version", 1),
+            "max_executions": hard.get("max_executions", 1),
+        }
+        
+        canonical = canonical_json_bytes(canonical_mandate_payload(reconstructed_payload))
+        computed_hash = payload_sha256(canonical)
+        
+        if computed_hash != canonical_hash:
+            raise ValueError(f"AP2 signature verification failed: hash mismatch (expected {canonical_hash}, computed {computed_hash})")
+        
+        if not SignatureService.verify(canonical, signature_b64, public_key_pem):
+            raise ValueError("AP2 signature verification failed: invalid signature")
+    
     return {
         "instruction_text": f"AP2 Delegated Authority from {envelope.get('principal', {}).get('subject', 'human')}",
         "hard_constraints": {
-            "max_amount_paise": hard.get("max_amount_paise", 2000000),
+            "max_amount_paise": hard["max_amount_paise"],
             "allowed_currencies": [hard.get("currency", "INR")],
-            "allowed_merchants": hard.get("allowed_merchants", ["merchant_demo"]),
-            "allowed_categories": hard.get("allowed_categories", ["headphones"]),
+            "allowed_merchants": hard["allowed_merchants"],
+            "allowed_categories": hard["allowed_categories"],
             "allowed_conditions": hard.get("allowed_conditions", ["new"]),
             "max_quantity": hard.get("max_quantity", 1),
             "max_executions": hard.get("max_executions", 1),
@@ -125,23 +188,19 @@ def export_acp_checkout(proposal: CheckoutProposal, mandate: Mandate, product: P
 
 
 def verify_x402_handshake(auth_header: str | None) -> dict[str, Any]:
-    """Verify HTTP 402 machine-to-machine payment protocol token."""
-    if not auth_header or not auth_header.startswith("X402 "):
-        return {
-            "status": "PAYMENT_REQUIRED",
-            "http_code": 402,
-            "detail": "x402 Agentic Micro-Payment authorization header missing or malformed.",
-            "instructions": {
-                "supported_tokens": ["JANUS_AP2_DELEGATION", "RAZORPAY_TEST_TOKEN"],
-                "protocol": "x402/rfc-agentic-v1",
-            },
-        }
-
-    token = auth_header.split(" ", 1)[1]
+    """Placeholder for HTTP 402 machine-to-machine payment protocol verification.
+    
+    NOTE: x402 protocol implementation is out of scope for the current JANUS build.
+    This endpoint is reserved for future implementation of the x402 agentic micro-payment protocol.
+    Currently returns 501 Not Implemented to indicate this is not yet supported.
+    
+    Per AGENTS.md scope lock, x402 is a future enhancement and should not be implemented
+    until core authorization invariants are fully validated.
+    """
     return {
-        "status": "AUTHORIZED",
-        "http_code": 200,
-        "protocol": "x402/rfc-agentic-v1",
-        "token_hash": hashlib.sha256(token.encode()).hexdigest()[:16],
-        "message": "x402 machine-to-machine payment verified for autonomous execution.",
+        "status": "NOT_IMPLEMENTED",
+        "http_code": 501,
+        "detail": "x402 agentic micro-payment protocol is not yet implemented in JANUS.",
+        "note": "This feature is reserved for future implementation. Current JANUS authorization uses mandate-based delegation without x402 protocol.",
+        "documentation": "See AGENTS.md scope lock section for future roadmap.",
     }
