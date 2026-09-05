@@ -115,8 +115,11 @@ type HardCheck = {
 type SemanticResult = {
   constraint_id: string;
   status: string;
-  evidence: { field: string; value: unknown; source: string }[];
+  evidence: { field: string; value: unknown; source: string; citation?: string }[];
   reason: string;
+  confidence?: number | null;
+  abstain?: boolean;
+  citation?: string | null;
 };
 
 type Decision = {
@@ -207,6 +210,10 @@ type CandidateEvaluation = {
   hard_eligible: boolean;
   rejection_reason: string | null;
   semantic_score: number;
+  confidence?: number | null;
+  citations?: string[];
+  evidence_badges?: { field: string; value: unknown; status: string; citation?: string }[];
+  abstain?: boolean;
   semantic_notes: string | null;
 };
 
@@ -614,6 +621,56 @@ export default function App({
     });
   };
 
+  const simulateAdversarial = async () => {
+    act("simulate-adversarial", async () => {
+      let currentMandate = mandate;
+      if (!currentMandate || currentMandate.status !== "ACTIVE") {
+        const draftRes = await request<Draft>("/api/v1/mandates/compile", {
+          method: "POST",
+          body: JSON.stringify({
+            instruction_text: "Buy noise-cancelling headphones under ₹20k. Nothing flashy.",
+            merchant_id: merchantId,
+          }),
+        });
+        if (draftRes.hard_constraints) {
+          currentMandate = await request<Mandate>("/api/v1/mandates", {
+            method: "POST",
+            body: JSON.stringify({
+              instruction_text: "Buy noise-cancelling headphones under ₹20k. Nothing flashy.",
+              hard_constraints: draftRes.hard_constraints,
+              semantic_constraints: draftRes.semantic_constraints,
+              expires_at: new Date(Date.now() + 3600000).toISOString(),
+            }),
+          });
+          setMandate(currentMandate);
+        }
+      }
+      if (!currentMandate) return;
+
+      const trojan = (Array.isArray(products) ? products : []).find((p) => p.id === "prod_trojan") || products[0];
+      if (!trojan) return;
+      setSelected(trojan.id);
+
+      const value = await request<{ decision: Decision }>("/api/v1/proposals", {
+        method: "POST",
+        body: JSON.stringify({
+          mandate_id: currentMandate.id,
+          mandate_version: currentMandate.version,
+          product_id: trojan.id,
+          quantity: 1,
+          agent_request_id: `agent-${crypto.randomUUID()}`,
+        }),
+      });
+      setDecision(value.decision);
+      setOrder(null);
+      setPayment(null);
+      if (value.decision.step_up_id) {
+        setStepUp(await request(`/api/v1/step-ups/${value.decision.step_up_id}`));
+      }
+      setView("stepup");
+    });
+  };
+
   return (
     <div className="window-shell">
       {/* Top Scout-Style Announcement Banner */}
@@ -801,6 +858,8 @@ export default function App({
                   checkout={checkout}
                   payment={payment}
                   onSimulateStepUp={simulateStepUp}
+                  onSimulateAdversarial={simulateAdversarial}
+                  mandate={mandate}
                 />
               )}
 
@@ -837,7 +896,7 @@ function OverviewView({
   go: (v: View) => void;
   onSelectProductAndGo?: (skuId: string) => void;
 }) {
-  const [activeScenario, setActiveScenario] = useState<"allow" | "hard_block" | "stepup" | "revoked">("allow");
+  const [activeScenario, setActiveScenario] = useState<"allow" | "hard_block" | "stepup" | "revoked" | "adversarial">("allow");
 
   const scenarios = [
     {
@@ -891,6 +950,19 @@ function OverviewView({
       decision: "BLOCK",
       razorpay: "ZERO call count (funds protected)",
       theme: "fail",
+    },
+    {
+      id: "adversarial" as const,
+      label: "Demo 5: Prompt Injection Defense",
+      sku: "prod_trojan",
+      name: "Trojan Gold Beats (Adversarial SKU)",
+      hardGate: "PASS (Amount ₹14,999 ≤ ₹20,000, Category headphones)",
+      semantic: "DEFENDED: Prompt injection ignored as untrusted evidence → CONTRADICTED",
+      verdict: "STEP_UP",
+      outcome: "Zero injection bypass · Instruction quarantined · Escalated to human",
+      decision: "STEP_UP",
+      razorpay: "ZERO call count (Razorpay protected from adversarial hijack)",
+      theme: "stepup",
     },
   ];
 
@@ -1030,6 +1102,7 @@ function OverviewView({
             {activeScenario === "hard_block" && "Hard gate limits are mathematical law. Razorpay is never invoked when hard limits fail."}
             {activeScenario === "stepup" && "Catalog facts contradict intent. System fails safely to human approval once."}
             {activeScenario === "revoked" && "Human kill-switch checked before database lock reservation. Instant termination."}
+            {activeScenario === "adversarial" && "Untrusted catalog directives ('IGNORE INSTRUCTIONS') are quarantined. System enforces intent, blocks autonomous bypass, and alerts human."}
           </span>
           <button
             className="btn-sim-launch"
@@ -1950,7 +2023,14 @@ function SimulatorView({
                             </td>
                             <td>
                               {c.semantic_notes ? (
-                                <StateBadge value={c.semantic_notes.includes("Contradicted") ? "CONTRADICTED" : "SUPPORTED"} />
+                                <div>
+                                  <StateBadge value={c.semantic_notes.includes("CONTRADICTED") || c.semantic_notes.includes("Contradicted") ? "CONTRADICTED" : c.abstain ? "STEP_UP" : "SUPPORTED"} />
+                                  {c.confidence != null && (
+                                    <span style={{ display: "block", fontSize: "10px", marginTop: "3px", color: c.abstain ? "#b91c1c" : "#047857", fontFamily: "var(--font-mono)", fontWeight: 600 }}>
+                                      {(c.confidence * 100).toFixed(0)}% {c.abstain ? "(Abstained)" : "Conf"}
+                                    </span>
+                                  )}
+                                </div>
                               ) : (
                                 <span style={{ color: "var(--ink-muted)", fontSize: "10.5px" }}>N/A</span>
                               )}
@@ -1959,11 +2039,46 @@ function SimulatorView({
                               {c.semantic_score > 0 ? c.semantic_score.toFixed(2) : "0.00"}
                             </td>
                             <td style={{ fontSize: "11px", color: isSelected ? "#065f46" : "var(--ink-secondary)" }}>
-                              {isSelected ? (
-                                <strong>Optimal Choice: Highest semantic match under budget</strong>
-                              ) : (
-                                c.rejection_reason || c.semantic_notes || "Sub-optimal match"
-                              )}
+                              <div>
+                                {isSelected ? (
+                                  <strong style={{ color: "#065f46", display: "block", marginBottom: "3px" }}>
+                                    ✓ Selected: Highest verified intent match within budget
+                                  </strong>
+                                ) : (
+                                  <span>{c.rejection_reason || c.semantic_notes || "Sub-optimal match"}</span>
+                                )}
+
+                                {c.citations && c.citations.length > 0 && (
+                                  <div style={{ fontSize: "10.5px", color: "#475569", marginTop: "4px", fontStyle: "italic", background: "#f8fafc", padding: "4px 8px", borderRadius: "4px", border: "1px solid #e2e8f0" }}>
+                                    "{c.citations[0]}"
+                                  </div>
+                                )}
+
+                                {c.evidence_badges && c.evidence_badges.length > 0 && (
+                                  <div style={{ display: "flex", flexWrap: "wrap", gap: "4px", marginTop: "5px" }}>
+                                    {c.evidence_badges.slice(0, 4).map((b, idx) => {
+                                      const isSupp = b.status === "SUPPORTED";
+                                      return (
+                                        <span
+                                          key={idx}
+                                          style={{
+                                            fontSize: "9.5px",
+                                            fontFamily: "var(--font-mono)",
+                                            padding: "1px 5px",
+                                            borderRadius: "3px",
+                                            background: isSupp ? "#dcfce7" : "#fee2e2",
+                                            color: isSupp ? "#166534" : "#991b1b",
+                                            border: `1px solid ${isSupp ? "#86efac" : "#fca5a5"}`,
+                                          }}
+                                          title={b.citation || `${b.field}=${b.value}`}
+                                        >
+                                          {b.field}={String(b.value)}
+                                        </span>
+                                      );
+                                    })}
+                                  </div>
+                                )}
+                              </div>
                             </td>
                           </tr>
                         );
@@ -2022,6 +2137,14 @@ function SimulatorView({
                 onClick={() => setSelected("prod_c")}
               >
                 Demo 3: Aura Gold Party
+              </button>
+              <button
+                type="button"
+                className="btn-secondary"
+                style={{ padding: "2px 7px", fontSize: "10px", color: "#b91c1c", borderColor: "#fca5a5" }}
+                onClick={() => setSelected("prod_trojan")}
+              >
+                Demo 5: Trojan Injection
               </button>
             </div>
 
@@ -2116,12 +2239,24 @@ function SimulatorView({
                       SEMANTIC INTENT CLASSIFICATION
                     </span>
                     {(decision.semantic.results ?? []).map((item) => (
-                      <div key={item.constraint_id} style={{ marginTop: "6px" }}>
+                      <div key={item.constraint_id} style={{ marginTop: "8px", padding: "6px 8px", background: "#f8fafc", borderRadius: "6px", border: "1px solid #e2e8f0" }}>
                         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
                           <strong style={{ fontSize: "12px" }}>{pretty(item.constraint_id)}</strong>
-                          <StateBadge value={item.status} />
+                          <div style={{ display: "flex", gap: "6px", alignItems: "center" }}>
+                            {item.confidence != null && (
+                              <span style={{ fontSize: "10px", fontFamily: "var(--font-mono)", fontWeight: 600, color: item.abstain ? "#b91c1c" : "#047857" }}>
+                                {(item.confidence * 100).toFixed(0)}% {item.abstain ? "(Abstained)" : "Conf"}
+                              </span>
+                            )}
+                            <StateBadge value={item.status} />
+                          </div>
                         </div>
-                        <p style={{ fontSize: "11.5px", color: "var(--ink-secondary)", margin: "3px 0" }}>{item.reason}</p>
+                        <p style={{ fontSize: "11.5px", color: "var(--ink-secondary)", margin: "3px 0 4px" }}>{item.reason}</p>
+                        {item.citation && (
+                          <div style={{ fontSize: "10.5px", color: "#334155", fontStyle: "italic", background: "#ffffff", padding: "3px 6px", borderRadius: "3px", border: "1px solid #cbd5e1", marginBottom: "4px" }}>
+                            "{item.citation}"
+                          </div>
+                        )}
                         <span style={{ fontSize: "10px", fontFamily: "var(--font-mono)", color: "var(--purple-brand)" }}>
                           Evidence: {(item.evidence ?? []).map((e) => `${e.field}: ${String(e.value)}`).join(" · ") || "None"}
                         </span>
@@ -2222,6 +2357,8 @@ function StepUpView({
   checkout,
   payment,
   onSimulateStepUp,
+  onSimulateAdversarial,
+  mandate,
 }: {
   decision: Decision | null;
   data: Record<string, unknown> | null;
@@ -2231,27 +2368,41 @@ function StepUpView({
   checkout: () => void;
   payment: PaymentResult | null;
   onSimulateStepUp?: () => void;
+  onSimulateAdversarial?: () => void;
+  mandate?: Mandate | null;
 }) {
   if (!decision?.step_up_id || !data) {
     return (
-      <div className="empty-box" style={{ marginTop: "60px", maxWidth: "460px", margin: "60px auto" }}>
+      <div className="empty-box" style={{ marginTop: "60px", maxWidth: "480px", margin: "60px auto" }}>
         <UserCheck size={38} color="var(--purple-brand)" />
         <strong style={{ fontSize: "16px", marginTop: "6px" }}>Human Oversight Console</strong>
         <p style={{ color: "var(--ink-secondary)", fontSize: "12.5px", lineHeight: 1.5 }}>
           Ambiguity, missing catalog evidence, or semantic contradiction routes to this console.
           Human approve-once creates single-use authorization strictly bound to the exact proposal facts.
         </p>
-        {onSimulateStepUp && (
-          <button
-            className="btn-primary"
-            style={{ marginTop: "14px" }}
-            onClick={onSimulateStepUp}
-            disabled={!!busy}
-          >
-            <Sparkles size={14} />
-            <span>Simulate Contradiction Step-Up (Demo Beat 3)</span>
-          </button>
-        )}
+        <div style={{ display: "flex", gap: "10px", marginTop: "14px", flexWrap: "wrap", justifyContent: "center" }}>
+          {onSimulateStepUp && (
+            <button
+              className="btn-primary"
+              onClick={onSimulateStepUp}
+              disabled={!!busy}
+            >
+              <Sparkles size={14} />
+              <span>Simulate Contradiction Step-Up (Demo Beat 3)</span>
+            </button>
+          )}
+          {onSimulateAdversarial && (
+            <button
+              className="btn-secondary"
+              style={{ color: "#b91c1c", borderColor: "#fca5a5" }}
+              onClick={onSimulateAdversarial}
+              disabled={!!busy}
+            >
+              <ShieldAlert size={14} />
+              <span>Simulate Injection Step-Up (Demo Beat 5)</span>
+            </button>
+          )}
+        </div>
       </div>
     );
   }
@@ -2260,6 +2411,13 @@ function StepUpView({
   const reasonCode = String(data?.reason_code || decision.reason_code || "SEMANTIC_CONTRADICTED");
   const proposalId = String(data?.proposal_id || decision.proposal_id || "");
   const bindingHash = String(data?.binding_hash || "");
+
+  const evidenceObj = data?.evidence as { results?: SemanticResult[] } | undefined;
+  const semanticResults: SemanticResult[] =
+    decision?.semantic?.results ?? evidenceObj?.results ?? [];
+  const buyerIntent =
+    mandate?.instruction_text ||
+    (typeof data?.instruction_text === "string" ? data.instruction_text : "Buy noise-cancelling headphones under ₹20k. Nothing flashy.");
 
   return (
     <>
@@ -2295,6 +2453,86 @@ function StepUpView({
             <code style={{ fontSize: "10px", color: "var(--ink-muted)" }}>
               {bindingHash ? `${bindingHash.slice(0, 32)}…` : "N/A"}
             </code>
+          </div>
+
+          {/* EVIDENCE-GROUNDED CITATION AUDIT CARD */}
+          <div style={{ marginTop: "14px", background: "#fef2f2", border: "1px solid #fecaca", borderRadius: "8px", padding: "12px 14px" }}>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "8px" }}>
+              <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
+                <ShieldAlert size={14} color="#dc2626" />
+                <span style={{ fontSize: "11px", fontWeight: 700, fontFamily: "var(--font-mono)", color: "#991b1b", letterSpacing: "0.05em" }}>
+                  EVIDENCE CITATION AUDIT
+                </span>
+              </div>
+              <span style={{ fontSize: "10px", background: "#fee2e2", color: "#991b1b", padding: "2px 8px", borderRadius: "4px", fontWeight: 700, border: "1px solid #fca5a5" }}>
+                STEP_UP TRIGGERED
+              </span>
+            </div>
+
+            {buyerIntent && (
+              <div style={{ fontSize: "12px", marginBottom: "8px", color: "#1e293b", background: "#ffffff", padding: "6px 10px", borderRadius: "4px", border: "1px solid #fee2e2" }}>
+                <strong style={{ color: "#475569" }}>Buyer intent: </strong>
+                <span>"{buyerIntent}"</span>
+              </div>
+            )}
+
+            {semanticResults.length > 0 ? (
+              <div style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
+                {semanticResults.map((sr, idx) => (
+                  <div key={idx} style={{ background: "#ffffff", padding: "8px 10px", borderRadius: "6px", border: "1px solid #fecaca" }}>
+                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "4px" }}>
+                      <span style={{ fontSize: "11.5px", fontWeight: 700, color: sr.status === "CONTRADICTED" ? "#b91c1c" : sr.status === "INSUFFICIENT_EVIDENCE" ? "#c2410c" : "#15803d" }}>
+                        {sr.status}
+                      </span>
+                      {sr.confidence != null && (
+                        <span style={{ fontSize: "10.5px", fontFamily: "var(--font-mono)", fontWeight: 600, color: sr.abstain ? "#b91c1c" : "#047857" }}>
+                          {(sr.confidence * 100).toFixed(0)}% {sr.abstain ? "(Abstained)" : "Conf"}
+                        </span>
+                      )}
+                    </div>
+                    {sr.reason && (
+                      <p style={{ fontSize: "11.5px", color: "#334155", margin: "2px 0 6px", lineHeight: 1.4 }}>
+                        {sr.reason}
+                      </p>
+                    )}
+                    {sr.citation && (
+                      <div style={{ fontSize: "10.5px", color: "#475569", fontStyle: "italic", background: "#f8fafc", padding: "4px 8px", borderRadius: "4px", border: "1px solid #e2e8f0", marginBottom: "6px" }}>
+                        "{sr.citation}"
+                      </div>
+                    )}
+                    <div style={{ display: "flex", flexWrap: "wrap", gap: "4px" }}>
+                      {(sr.evidence || []).map((e, eIdx) => (
+                        <span
+                          key={eIdx}
+                          style={{
+                            fontSize: "10px",
+                            fontFamily: "var(--font-mono)",
+                            padding: "2px 6px",
+                            borderRadius: "4px",
+                            background: sr.status === "SUPPORTED" ? "#dcfce7" : "#fee2e2",
+                            color: sr.status === "SUPPORTED" ? "#166534" : "#991b1b",
+                            border: `1px solid ${sr.status === "SUPPORTED" ? "#86efac" : "#fca5a5"}`,
+                            fontWeight: 500,
+                          }}
+                          title={e.citation || `${e.field}=${String(e.value)}`}
+                        >
+                          {e.field}={String(e.value)}
+                        </span>
+                      ))}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <div style={{ fontSize: "11px", color: "#64748b" }}>
+                No semantic constraints contradicted.
+              </div>
+            )}
+
+            <div style={{ marginTop: "10px", padding: "6px 8px", background: "#fef2f2", borderRadius: "4px", fontSize: "11px", color: "#991b1b", fontWeight: 600, display: "flex", alignItems: "center", gap: "6px" }}>
+              <ShieldAlert size={14} />
+              <span>Action: STEP_UP (Autonomous purchase blocked, human escalation required)</span>
+            </div>
           </div>
         </div>
 

@@ -185,9 +185,14 @@ class AutonomousBuyerAgent:
             )
 
         semantic_constraints = mandate.semantic_constraints or []
-        ranked: list[tuple[Product, str, str]] = []  # (product, worst_status, summary)
+        ranked: list[tuple[Product, str, str, float]] = []  # (product, worst_status, summary, min_confidence)
 
         for prod in eligible_candidates:
+            citations: list[str] = []
+            badges: list[dict[str, Any]] = []
+            prod_confidence = 1.0
+            prod_abstain = False
+
             if semantic_constraints:
                 assessment = assess_semantic_constraints(
                     mandate.instruction_text, semantic_constraints, prod.attributes or {}, self.semantic_model
@@ -196,36 +201,46 @@ class AutonomousBuyerAgent:
                 worst = _worst_semantic_status(results_dicts)
                 reasons = [f"{r.constraint_id}: {r.status} ({r.reason[:80]})" for r in assessment.results]
                 summary = "; ".join(reasons) if reasons else "No constraints evaluated"
+                citations = [r.citation for r in assessment.results if r.citation]
+                prod_confidence = min((r.confidence for r in assessment.results), default=1.0)
+                prod_abstain = any(r.abstain for r in assessment.results)
+                for r in assessment.results:
+                    for ev in r.evidence:
+                        badges.append({"field": ev.field, "value": ev.value, "status": r.status, "citation": ev.citation})
             else:
                 worst = "SUPPORTED"
                 summary = "No semantic constraints — auto-supported"
 
-            ranked.append((prod, worst, summary))
+            ranked.append((prod, worst, summary, prod_confidence))
 
-            # Update the evaluation entry with real semantic results
+            # Update the evaluation entry with real semantic results, confidence, and cited badges
             for ev in evaluations:
                 if ev.product_id == prod.id:
                     ev.semantic_score = round(1.0 - _SEMANTIC_RANK.get(worst, 1) * 0.5, 2)
+                    ev.confidence = round(prod_confidence, 2)
+                    ev.citations = citations
+                    ev.evidence_badges = badges
+                    ev.abstain = prod_abstain
                     ev.semantic_notes = summary
                     break
 
         # Sort: SUPPORTED first, then INSUFFICIENT_EVIDENCE, then CONTRADICTED.
-        # Within same tier, prefer lower price (best value for human).
-        ranked.sort(key=lambda item: (_SEMANTIC_RANK.get(item[1], 1), item[0].price_paise))
-        best_product, best_status, best_summary = ranked[0]
+        # Within same tier: higher confidence preferred, then lower price (best value for human).
+        ranked.sort(key=lambda item: (_SEMANTIC_RANK.get(item[1], 1), -item[3], item[0].price_paise))
+        best_product, best_status, best_summary, best_conf = ranked[0]
 
         semantic_detail_lines = [
-            f"  • {prod.name} ({prod.id}): {status} — {summary[:100]}"
-            for prod, status, summary in ranked
+            f"  • {prod.name} ({prod.id}): {status} (conf: {conf:.2f}) — {summary[:100]}"
+            for prod, status, summary, conf in ranked
         ]
         steps.append(
             AgentStep(
                 step_num=4,
-                title="LLM Semantic Evaluation (All Candidates)",
+                title="LLM Semantic Evaluation & Evidence Citation",
                 detail=(
-                    f"Ran real semantic assessment on {len(eligible_candidates)} eligible candidates:\n"
+                    f"Ran real semantic assessment with attribute citation on {len(eligible_candidates)} eligible candidates:\n"
                     + "\n".join(semantic_detail_lines)
-                    + f"\nBest match: '{best_product.name}' ({best_status})."
+                    + f"\nBest match: '{best_product.name}' ({best_status}, confidence: {best_conf:.2f})."
                 ),
             )
         )
@@ -233,7 +248,7 @@ class AutonomousBuyerAgent:
         reasoning = (
             f"Selected '{best_product.name}' (SKU: {best_product.id}) at ₹{best_product.price_paise/100:,.2f}. "
             f"Satisfies hard budget ceiling (₹{max_amount_paise/100:,.2f}). "
-            f"Semantic outcome: {best_status}. {best_summary[:120]}."
+            f"Semantic outcome: {best_status} (confidence: {best_conf:.2f}). {best_summary[:120]}."
         )
 
         # Stage 5: Proposal Construction & Gateway Dispatch

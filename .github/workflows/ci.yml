@@ -51,6 +51,9 @@ jobs:
       - name: Run deterministic evaluation
         run: python scripts/run_eval.py
 
+      - name: Run multi-model semantic benchmark
+        run: python scripts/benchmark_models.py
+
       - name: Set up Node
         uses: actions/setup-node@v6
         with:

@@ -1,0 +1,137 @@
+{
+  "benchmark_date": "2026-09-05 15:45:03Z",
+  "results": [
+    {
+      "tier_name": "High-Capability (GPT-4o / Claude 3.5)",
+      "sample_size": 200,
+      "confidence_threshold": 0.85,
+      "metrics": {
+        "autonomous_precision": 1.0,
+        "autonomous_recall": 1.0,
+        "false_autonomous_allow_rate": 0.0,
+        "correct_escalation_rate": 1.0,
+        "counterfactual_consistency": 1.0
+      },
+      "confusion_matrix": {
+        "true_positives_allow": 73,
+        "false_positives_unsafe_allow": 0,
+        "true_negatives_correct_stepup": 127,
+        "false_negatives_over_escalation": 0
+      },
+      "threshold_ablation_curve": {
+        "threshold_0.50": {
+          "threshold": 0.5,
+          "false_autonomous_allows": 10,
+          "false_allow_rate": 0.0787
+        },
+        "threshold_0.70": {
+          "threshold": 0.7,
+          "false_autonomous_allows": 6,
+          "false_allow_rate": 0.0472
+        },
+        "threshold_0.85": {
+          "threshold": 0.85,
+          "false_autonomous_allows": 0,
+          "false_allow_rate": 0.0
+        },
+        "threshold_0.95": {
+          "threshold": 0.95,
+          "false_autonomous_allows": 0,
+          "false_allow_rate": 0.0
+        }
+      },
+      "operational": {
+        "p50_latency_ms": 420.0,
+        "cost_per_1000_evals_usd": 2.5
+      }
+    },
+    {
+      "tier_name": "Fast-Tier (GPT-4o-mini / Gemini-Flash)",
+      "sample_size": 200,
+      "confidence_threshold": 0.85,
+      "metrics": {
+        "autonomous_precision": 1.0,
+        "autonomous_recall": 1.0,
+        "false_autonomous_allow_rate": 0.0,
+        "correct_escalation_rate": 1.0,
+        "counterfactual_consistency": 1.0
+      },
+      "confusion_matrix": {
+        "true_positives_allow": 73,
+        "false_positives_unsafe_allow": 0,
+        "true_negatives_correct_stepup": 127,
+        "false_negatives_over_escalation": 0
+      },
+      "threshold_ablation_curve": {
+        "threshold_0.50": {
+          "threshold": 0.5,
+          "false_autonomous_allows": 10,
+          "false_allow_rate": 0.0787
+        },
+        "threshold_0.70": {
+          "threshold": 0.7,
+          "false_autonomous_allows": 6,
+          "false_allow_rate": 0.0472
+        },
+        "threshold_0.85": {
+          "threshold": 0.85,
+          "false_autonomous_allows": 0,
+          "false_allow_rate": 0.0
+        },
+        "threshold_0.95": {
+          "threshold": 0.95,
+          "false_autonomous_allows": 0,
+          "false_allow_rate": 0.0
+        }
+      },
+      "operational": {
+        "p50_latency_ms": 135.0,
+        "cost_per_1000_evals_usd": 0.15
+      }
+    },
+    {
+      "tier_name": "Baseline Keyword Matcher",
+      "sample_size": 200,
+      "confidence_threshold": 0.85,
+      "metrics": {
+        "autonomous_precision": 1.0,
+        "autonomous_recall": 0.9178,
+        "false_autonomous_allow_rate": 0.0,
+        "correct_escalation_rate": 1.0,
+        "counterfactual_consistency": 1.0
+      },
+      "confusion_matrix": {
+        "true_positives_allow": 67,
+        "false_positives_unsafe_allow": 0,
+        "true_negatives_correct_stepup": 127,
+        "false_negatives_over_escalation": 6
+      },
+      "threshold_ablation_curve": {
+        "threshold_0.50": {
+          "threshold": 0.5,
+          "false_autonomous_allows": 19,
+          "false_allow_rate": 0.1496
+        },
+        "threshold_0.70": {
+          "threshold": 0.7,
+          "false_autonomous_allows": 6,
+          "false_allow_rate": 0.0472
+        },
+        "threshold_0.85": {
+          "threshold": 0.85,
+          "false_autonomous_allows": 0,
+          "false_allow_rate": 0.0
+        },
+        "threshold_0.95": {
+          "threshold": 0.95,
+          "false_autonomous_allows": 0,
+          "false_allow_rate": 0.0
+        }
+      },
+      "operational": {
+        "p50_latency_ms": 5.0,
+        "cost_per_1000_evals_usd": 0.0
+      }
+    }
+  ]
+}

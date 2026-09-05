@@ -105,7 +105,7 @@ def test_autonomous_buyer_agent_selects_optimal_product_and_executes(db):
     assert response.selected_product_id == "prod_a"  # Sony Voyager NC ₹18,499
     assert response.razorpay_order_id is not None
     assert len(response.steps) >= 5
-    assert len(response.candidates_evaluated) == 5
+    assert len(response.candidates_evaluated) == 6
 
     # Check that Sony Studio Pro (₹21,499) was rejected for exceeding budget
     studio_eval = next(c for c in response.candidates_evaluated if c.product_id == "prod_b")

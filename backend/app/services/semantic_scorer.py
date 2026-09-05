@@ -65,11 +65,15 @@ def _detect_prompt_injection(val: Any) -> bool:
     return False
 
 
+DEFAULT_CONFIDENCE_THRESHOLD = 0.85
+
+
 def assess_semantic_constraints(
     instruction_text: str,
     semantic_constraints: list[dict],
     product_evidence: dict[str, Any],
     model: SemanticModelPort,
+    confidence_threshold: float = DEFAULT_CONFIDENCE_THRESHOLD,
 ) -> SemanticAssessment:
     if not semantic_constraints:
         return SemanticAssessment(results=[])
@@ -81,8 +85,11 @@ def assess_semantic_constraints(
                 SemanticConstraintResult(
                     constraint_id=item["id"],
                     status="INSUFFICIENT_EVIDENCE",
+                    confidence=0.0,
                     evidence=[],
+                    citation="Quarantined: Prompt-injection attack vector detected in catalog evidence.",
                     reason="Merchant evidence contained instruction-like or prompt-injection text and was quarantined.",
+                    abstain=True,
                 )
                 for item in semantic_constraints
             ]
@@ -107,8 +114,11 @@ def assess_semantic_constraints(
                 SemanticConstraintResult(
                     constraint_id=constraint["id"],
                     status="INSUFFICIENT_EVIDENCE",
+                    confidence=0.0,
                     evidence=[],
+                    citation="Malformed: Missing or invalid status returned by classifier.",
                     reason="Model output missing or malformed for this constraint.",
+                    abstain=True,
                 )
             )
             continue
@@ -119,23 +129,63 @@ def assess_semantic_constraints(
                 SemanticConstraintResult(
                     constraint_id=constraint["id"],
                     status="INSUFFICIENT_EVIDENCE",
+                    confidence=0.0,
                     evidence=[],
+                    citation="Fail-closed: Model hallucinated evidence keys not present in merchant catalog.",
                     reason="Model cited evidence outside the merchant catalog.",
+                    abstain=True,
                 )
             )
             continue
 
-        evidence = [EvidenceItem(field=field, value=product_evidence[field]) for field in fields]
+        evidence = [
+            EvidenceItem(
+                field=field,
+                value=product_evidence[field],
+                citation=f"catalog.attributes.{field}={product_evidence[field]!r}",
+            )
+            for field in fields
+        ]
         status = item["status"]
+        raw_confidence = item.get("confidence", 1.0)
+        try:
+            confidence = max(0.0, min(1.0, float(raw_confidence)))
+        except (ValueError, TypeError):
+            confidence = 0.5
+
         if status in {"SUPPORTED", "CONTRADICTED"} and not evidence:
             status = "INSUFFICIENT_EVIDENCE"
+            confidence = 0.0
+
+        # Calibrated Abstention Mechanism:
+        # If status is SUPPORTED but model confidence is below the safety threshold,
+        # fail closed to human supervision (STEP_UP via INSUFFICIENT_EVIDENCE).
+        abstain = False
+        reason = str(item.get("reason", ""))[:500]
+        if status == "SUPPORTED" and confidence < confidence_threshold:
+            status = "INSUFFICIENT_EVIDENCE"
+            abstain = True
+            reason = (
+                f"Epistemic confidence ({confidence:.2f}) below autonomous safety threshold "
+                f"({confidence_threshold:.2f}). Abstaining from autonomous execution; escalating to human step-up."
+            )
+
+        # Build clean, human-auditable citation string
+        evidence_str = ", ".join(f"catalog.attributes.{f}={product_evidence[f]!r}" for f in fields)
+        if evidence_str:
+            citation = f"{status} because {evidence_str}: {reason}"
+        else:
+            citation = f"{status}: {reason}"
 
         validated.append(
             SemanticConstraintResult(
                 constraint_id=constraint["id"],
                 status=status,
+                confidence=confidence,
                 evidence=evidence,
-                reason=str(item.get("reason", ""))[:500],
+                citation=citation,
+                reason=reason,
+                abstain=abstain,
             )
         )
 

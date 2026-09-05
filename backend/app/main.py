@@ -9,7 +9,7 @@ from alembic.migration import MigrationContext
 from alembic.config import Config
 from alembic.script import ScriptDirectory
 
-from app.api import audit, catalog, mandates, proposals, stepups
+from app.api import audit, catalog, interop, mandates, proposals, stepups
 from app.config import get_settings, validate_production_settings
 from app.db import models  # noqa: F401
 from app.db.session import Base, SessionLocal, engine
@@ -58,6 +58,7 @@ app.include_router(proposals.router)
 app.include_router(audit.router)
 app.include_router(catalog.router)
 app.include_router(stepups.router)
+app.include_router(interop.router)
 
 
 @app.exception_handler(Exception)

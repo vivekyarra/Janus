@@ -152,6 +152,7 @@ class HardGateResult(BaseModel):
 class EvidenceItem(BaseModel):
     field: str
     value: Any
+    citation: str | None = None
     source: Literal["merchant_catalog"] = "merchant_catalog"
 
 
@@ -159,7 +160,10 @@ class SemanticConstraintResult(BaseModel):
     constraint_id: str
     status: Literal["SUPPORTED", "CONTRADICTED", "INSUFFICIENT_EVIDENCE"]
     evidence: list[EvidenceItem]
+    confidence: float = Field(default=1.0, ge=0.0, le=1.0)
     reason: str
+    citation: str | None = None
+    abstain: bool = False
 
 
 class SemanticAssessment(BaseModel):

@@ -103,6 +103,10 @@ class CandidateEvaluation(BaseModel):
     hard_eligible: bool
     rejection_reason: str | None = None
     semantic_score: float | None = None
+    confidence: float | None = None
+    citations: list[str] = Field(default_factory=list)
+    evidence_badges: list[dict[str, Any]] = Field(default_factory=list)
+    abstain: bool = False
     semantic_notes: str | None = None
 
 

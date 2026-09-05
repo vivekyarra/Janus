@@ -5,10 +5,10 @@ from app.repositories.catalog import seed_catalog
 
 
 def test_seed_catalog_is_deterministic(db) -> None:
-    assert seed_catalog(db) == 5
-    assert seed_catalog(db) == 5
+    assert seed_catalog(db) == 6
+    assert seed_catalog(db) == 6
     assert db.query(type(db.get_bind().mapper_registry) if False else Mandate).count() == 0
-    assert db.execute(__import__("sqlalchemy").text("SELECT count(*) FROM products")).scalar_one() == 5
+    assert db.execute(__import__("sqlalchemy").text("SELECT count(*) FROM products")).scalar_one() == 6
 
 
 def test_core_entities_persist(db) -> None:
