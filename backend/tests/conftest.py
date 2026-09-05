@@ -1,6 +1,10 @@
 import os
 
 os.environ.setdefault("DATABASE_URL", "sqlite:///./janus_test.db")
+os.environ["AUTH_REQUIRED"] = "false"
+
+from app.config import get_settings
+get_settings.cache_clear()
 
 import pytest
 from sqlalchemy import create_engine
