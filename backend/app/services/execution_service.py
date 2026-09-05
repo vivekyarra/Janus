@@ -53,9 +53,9 @@ class ExecutionService:
             self.db.commit()
             raise AuthorizationDenied(str(result.reason_code))
 
-        # Reserve execution slot — but do NOT commit yet.
-        # The Razorpay call happens inside the same logical transaction.
-        # If Razorpay fails, we rollback the reservation.
+        # Reserve execution slot and commit reservation to release DB row lock.
+        # This prevents holding DB locks across external network calls and avoids deadlocks.
+        # If Razorpay fails, we roll back the reservation explicitly.
         previous_execution_count = mandate.execution_count
         previous_mandate_status = mandate.status
 
@@ -68,8 +68,7 @@ class ExecutionService:
             "mandate_version": mandate.version,
             "execution_count": mandate.execution_count,
         })
-        # Flush to persist the reservation within the transaction, but keep row locks held
-        self.db.flush()
+        self.db.commit()
 
         try:
             order = self.razorpay.create_order(
@@ -81,10 +80,15 @@ class ExecutionService:
         except RazorpayOrderCreationFailed as exc:
             # CRITICAL: Rollback the execution reservation on Razorpay failure.
             # The mandate slot must NOT be consumed by a failed external call.
-            mandate.execution_count = previous_execution_count
-            mandate.status = previous_mandate_status
-            proposal.status = "FAILED"
-            proposal.execution_error = exc.reason_code
+            mandate = self.db.scalar(select(Mandate).where(Mandate.id == proposal.mandate_id).with_for_update())
+            if mandate is not None:
+                mandate.execution_count = previous_execution_count
+                if mandate.status != "REVOKED":
+                    mandate.status = previous_mandate_status
+            proposal = self.db.scalar(select(CheckoutProposal).where(CheckoutProposal.id == proposal.id).with_for_update())
+            if proposal is not None:
+                proposal.status = "FAILED"
+                proposal.execution_error = exc.reason_code
             write_audit(self.db, "EXECUTION_BLOCKED", "proposal", proposal.id, {
                 "reason_code": exc.reason_code,
                 "razorpay_called": True,
@@ -95,6 +99,7 @@ class ExecutionService:
             raise
 
         # Razorpay succeeded — finalize
+        proposal = self.db.scalar(select(CheckoutProposal).where(CheckoutProposal.id == proposal.id).with_for_update())
         proposal.status = "ORDER_CREATED"
         proposal.razorpay_order_id = order["id"]
         proposal.executed_at = datetime.now(timezone.utc)
