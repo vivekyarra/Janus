@@ -326,12 +326,10 @@ export default function App({
   getAccessToken?: () => Promise<string | null>;
   userControl?: ReactNode;
 }) {
-  useEffect(() => {
-    accessTokenProvider = getAccessToken ?? (async () => null);
-    return () => {
-      accessTokenProvider = async () => null;
-    };
-  }, [getAccessToken]);
+  // Install the current token provider synchronously. An effect-based global
+  // assignment races React StrictMode's mount/cleanup cycle and can issue an
+  // unauthenticated refresh immediately after a valid authenticated one.
+  accessTokenProvider = getAccessToken ?? (async () => null);
 
   const [view, setView] = useState<View>("overview");
   const [products, setProducts] = useState<Product[]>([]);
@@ -359,16 +357,16 @@ export default function App({
         ? `/api/v1/products/metrics?merchant_id=${encodeURIComponent(merchantId)}`
         : "/api/v1/products/metrics";
       const [catalogRes, eventsRes, metricsRes] = await Promise.all([
-        request<Product[]>(catalogPath).catch(() => []),
-        request<AuditEvent[]>("/api/v1/audit?limit=100").catch(() => []),
-        request<MerchantMetrics>(metricsPath).catch(() => null),
+        request<Product[]>(catalogPath),
+        request<AuditEvent[]>("/api/v1/audit?limit=100"),
+        request<MerchantMetrics>(metricsPath),
       ]);
       const catalog = Array.isArray(catalogRes) ? catalogRes : [];
       const events = Array.isArray(eventsRes) ? eventsRes : [];
       if (metricsRes) setMetrics(metricsRes);
 
       if (catalog.length === 0 && merchantId !== "merchant_demo") {
-        const allProducts = await request<Product[]>("/api/v1/products").catch(() => []);
+        const allProducts = await request<Product[]>("/api/v1/products");
         if (Array.isArray(allProducts) && allProducts.length > 0) {
           setProducts(allProducts);
           if (allProducts[0]?.merchant_id) {
@@ -383,6 +381,8 @@ export default function App({
       setAudit(events);
     } catch (err) {
       console.error("Refresh error:", err);
+      setError(err instanceof Error ? err.message : "Unable to refresh gateway state");
+      throw err;
     }
   }, [merchantId]);
 
@@ -901,20 +901,20 @@ function OverviewView({
   const scenarios = [
     {
       id: "allow" as const,
-      label: "Demo 1: Autonomous Allow",
+      label: "1 · Autonomous Allow",
       sku: "prod_a",
       name: "Sony Voyager NC (₹18,499)",
       hardGate: "PASS (Amount ≤ ₹20k, Currency INR, Merchant match)",
       semantic: "SUPPORTED (Foldable, travel case, minimal branding)",
       verdict: "ALLOW",
-      outcome: "Razorpay Test Order created directly",
+      outcome: "Live path: verify one Razorpay test order in Checkout Engine",
       decision: "ALLOW",
-      razorpay: "Razorpay Test Order created directly",
+      razorpay: "Reached only after an authorized execution request",
       theme: "pass",
     },
     {
       id: "hard_block" as const,
-      label: "Demo 2: Hard Gate Violation",
+      label: "2 · Hard Violation",
       sku: "prod_b",
       name: "Sony Studio Pro (₹21,499)",
       hardGate: "FAIL: AMOUNT_LIMIT_EXCEEDED (₹21,499 > ₹20,000 ceiling)",
@@ -927,7 +927,7 @@ function OverviewView({
     },
     {
       id: "stepup" as const,
-      label: "Demo 3: Semantic Step-Up",
+      label: "3 · Semantic Step-Up",
       sku: "prod_c",
       name: "Sony Party Edition (₹14,999)",
       hardGate: "PASS (Amount ₹14,999 ≤ ₹20,000, Category audio)",
@@ -940,7 +940,7 @@ function OverviewView({
     },
     {
       id: "revoked" as const,
-      label: "Demo 4: Revocation Kill-Switch",
+      label: "4 · Revocation",
       sku: "prod_a",
       name: "Mid-Session Revocation",
       hardGate: "FAIL: MANDATE_REVOKED (signed version invalidated)",
@@ -953,7 +953,7 @@ function OverviewView({
     },
     {
       id: "adversarial" as const,
-      label: "Demo 5: Prompt Injection Defense",
+      label: "5 · Injection Defense",
       sku: "prod_trojan",
       name: "Trojan Gold Beats (Adversarial SKU)",
       hardGate: "PASS (Amount ₹14,999 ≤ ₹20,000, Category headphones)",
@@ -1020,7 +1020,7 @@ function OverviewView({
         <div className="sim-controls-bar">
           <div className="sim-title-group">
             <Sparkles size={15} color="#6a3df0" />
-            <span className="sim-title-kicker">REAL-TIME DUAL-PATH FIREWALL SIMULATOR</span>
+          <span className="sim-title-kicker">JUDGE DEMO MAP · FIVE LIVE PATHS</span>
           </div>
           <div className="sim-scenarios">
             {scenarios.map((sc) => (
@@ -1309,7 +1309,7 @@ function CatalogView({
       <div className="catalog-layout">
         {/* Left Column: Import Controls */}
         <div className="catalog-import-card">
-          <div className="form-group">
+          <div className="form-group catalog-merchant-group">
             <label className="form-label" htmlFor="merchant-input">Merchant Account ID</label>
             <input
               id="merchant-input"
@@ -1320,7 +1320,7 @@ function CatalogView({
             />
           </div>
 
-          <div className="form-group">
+          <div className="form-group catalog-upload-group">
             <label className="form-label">Upload Catalog JSON</label>
             <label className="file-drop-area" htmlFor="catalog-file-input">
               <UploadCloud size={17} />
@@ -1335,13 +1335,12 @@ function CatalogView({
             </label>
           </div>
 
-          <div className="form-group" style={{ flex: 1, display: "flex", flexDirection: "column" }}>
-            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "4px" }}>
+          <div className="form-group catalog-json-group">
+            <div className="catalog-json-header">
               <label className="form-label" htmlFor="catalog-json-textarea">Or Paste JSON Records</label>
               <button
                 type="button"
-                className="btn-secondary"
-                style={{ padding: "2px 8px", fontSize: "10px" }}
+                className="btn-secondary catalog-sample-btn"
                 onClick={() => {
                   setMerchantId("merchant_demo");
                   setPayload(JSON.stringify([
@@ -1397,7 +1396,7 @@ function CatalogView({
                   ], null, 2));
                 }}
               >
-                Insert Demo Preset
+                Load Sample JSON
               </button>
             </div>
             <textarea
@@ -1405,13 +1404,14 @@ function CatalogView({
               className="form-textarea"
               value={payload}
               onChange={(e) => setPayload(e.target.value)}
-              placeholder='[{"id":"sku-001","merchant_id":"merchant_demo","name":"Headphones","price_paise":1849900,"currency":"INR","category":"headphones","condition":"new","active":true,"attributes":{"color":"black"}}]'
+              placeholder={'Paste a JSON array of merchant-owned products here.\n\nRequired: id, merchant_id, name, price_paise, currency, category, condition, active and attributes.'}
+              spellCheck={false}
+              wrap="hard"
             />
           </div>
 
           <button
-            className="btn-primary"
-            style={{ width: "100%", justifyContent: "center" }}
+            className="btn-primary catalog-import-btn"
             disabled={!!busy || merchantId.length < 3 || !payload.trim()}
             onClick={importNow}
           >
@@ -1420,7 +1420,7 @@ function CatalogView({
           </button>
 
           {result && (
-            <div style={{ background: "var(--green-tint)", padding: "10px", borderRadius: "8px", fontSize: "11px", color: "#065f46" }}>
+            <div className="catalog-import-result">
               <strong>{result.total} Records Synced</strong> ({result.created} new, {result.updated} updated, {result.unchanged} unchanged)
             </div>
           )}

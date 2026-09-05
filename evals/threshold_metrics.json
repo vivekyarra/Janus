@@ -1,0 +1,82 @@
+{
+  "threshold_0.50": {
+    "threshold": 0.5,
+    "true_positives_allow": 71,
+    "false_positives_unsafe_allow": 5,
+    "true_negatives_correct_stepup": 122,
+    "false_negatives_over_escalation": 2,
+    "autonomous_precision": 0.9342,
+    "autonomous_recall": 0.9726,
+    "false_autonomous_allow_rate": 0.0394
+  },
+  "threshold_0.60": {
+    "threshold": 0.6,
+    "true_positives_allow": 71,
+    "false_positives_unsafe_allow": 5,
+    "true_negatives_correct_stepup": 122,
+    "false_negatives_over_escalation": 2,
+    "autonomous_precision": 0.9342,
+    "autonomous_recall": 0.9726,
+    "false_autonomous_allow_rate": 0.0394
+  },
+  "threshold_0.70": {
+    "threshold": 0.7,
+    "true_positives_allow": 71,
+    "false_positives_unsafe_allow": 5,
+    "true_negatives_correct_stepup": 122,
+    "false_negatives_over_escalation": 2,
+    "autonomous_precision": 0.9342,
+    "autonomous_recall": 0.9726,
+    "false_autonomous_allow_rate": 0.0394
+  },
+  "threshold_0.75": {
+    "threshold": 0.75,
+    "true_positives_allow": 71,
+    "false_positives_unsafe_allow": 5,
+    "true_negatives_correct_stepup": 122,
+    "false_negatives_over_escalation": 2,
+    "autonomous_precision": 0.9342,
+    "autonomous_recall": 0.9726,
+    "false_autonomous_allow_rate": 0.0394
+  },
+  "threshold_0.80": {
+    "threshold": 0.8,
+    "true_positives_allow": 71,
+    "false_positives_unsafe_allow": 5,
+    "true_negatives_correct_stepup": 122,
+    "false_negatives_over_escalation": 2,
+    "autonomous_precision": 0.9342,
+    "autonomous_recall": 0.9726,
+    "false_autonomous_allow_rate": 0.0394
+  },
+  "threshold_0.85": {
+    "threshold": 0.85,
+    "true_positives_allow": 71,
+    "false_positives_unsafe_allow": 5,
+    "true_negatives_correct_stepup": 122,
+    "false_negatives_over_escalation": 2,
+    "autonomous_precision": 0.9342,
+    "autonomous_recall": 0.9726,
+    "false_autonomous_allow_rate": 0.0394
+  },
+  "threshold_0.90": {
+    "threshold": 0.9,
+    "true_positives_allow": 71,
+    "false_positives_unsafe_allow": 5,
+    "true_negatives_correct_stepup": 122,
+    "false_negatives_over_escalation": 2,
+    "autonomous_precision": 0.9342,
+    "autonomous_recall": 0.9726,
+    "false_autonomous_allow_rate": 0.0394
+  },
+  "threshold_0.95": {
+    "threshold": 0.95,
+    "true_positives_allow": 56,
+    "false_positives_unsafe_allow": 0,
+    "true_negatives_correct_stepup": 127,
+    "false_negatives_over_escalation": 17,
+    "autonomous_precision": 1.0,
+    "autonomous_recall": 0.7671,
+    "false_autonomous_allow_rate": 0.0
+  }
+}

@@ -115,7 +115,7 @@ def test_two_execution_race_creates_one_order(pg_sessions) -> None:
 
 
 def seed_execution_x20(factory):
-    """Seed a mandate and 20 proposals for x20 concurrent test."""
+    """Seed one proposal that 20 callers will race to execute."""
     with factory() as db:
         seed_catalog(db)
         now = datetime.now(timezone.utc).replace(microsecond=0)
@@ -150,20 +150,18 @@ def seed_execution_x20(factory):
         )
         db.add(mandate)
         
-        # Create 20 proposals with the same agent_request_id to test idempotency
-        for index in range(20):
-            db.add(CheckoutProposal(
-                id=f"prp_x20_{index}",
-                mandate_id=mandate.id,
-                mandate_version=1,
-                product_id="prod_a",
-                quantity=1,
-                agent_request_id="x20-concurrent-test",  # Same request ID for all
-                expected_amount_paise=1849900,
-                currency="INR",
-                status="ALLOWED",
-                decision={}
-            ))
+        db.add(CheckoutProposal(
+            id="prp_x20",
+            mandate_id=mandate.id,
+            mandate_version=1,
+            product_id="prod_a",
+            quantity=1,
+            agent_request_id="x20-concurrent-test",
+            expected_amount_paise=1849900,
+            currency="INR",
+            status="ALLOWED",
+            decision={}
+        ))
         db.commit()
 
 
@@ -185,9 +183,9 @@ def test_x20_concurrent_execution_creates_single_razorpay_order(pg_sessions) -> 
         barrier.wait()  # All threads start at the same time
         try:
             with pg_sessions() as db:
-                ExecutionService(db, adapter).execute(proposal_id)
+                result = ExecutionService(db, adapter).execute(proposal_id)
             with lock:
-                outcomes.append("executed")
+                outcomes.append("replay" if result.get("idempotent_replay") else "executed")
         except AuthorizationDenied:
             with lock:
                 outcomes.append("blocked")
@@ -196,7 +194,7 @@ def test_x20_concurrent_execution_creates_single_razorpay_order(pg_sessions) -> 
                 outcomes.append(f"error: {type(e).__name__}")
 
     # Launch 20 concurrent threads
-    threads = [threading.Thread(target=run, args=(f"prp_x20_{index}",)) for index in range(20)]
+    threads = [threading.Thread(target=run, args=("prp_x20",)) for _ in range(20)]
     for thread in threads:
         thread.start()
     for thread in threads:
@@ -205,17 +203,18 @@ def test_x20_concurrent_execution_creates_single_razorpay_order(pg_sessions) -> 
     # Verify results
     executed_count = sum(1 for o in outcomes if o == "executed")
     blocked_count = sum(1 for o in outcomes if o == "blocked")
+    replay_count = sum(1 for o in outcomes if o == "replay")
     error_count = sum(1 for o in outcomes if o.startswith("error"))
     
-    print(f"x20 Test Results: {executed_count} executed, {blocked_count} blocked, {error_count} errors")
+    print(f"x20 Test Results: {executed_count} executed, {blocked_count} in-flight blocked, {replay_count} replayed, {error_count} errors")
     
     # Exactly one should execute, 19 should be blocked
     assert executed_count == 1, f"Expected 1 execution, got {executed_count}"
-    assert blocked_count == 19, f"Expected 19 blocked, got {blocked_count}"
+    assert blocked_count + replay_count == 19, "Expected 19 safe duplicate outcomes"
     assert error_count == 0, f"Expected 0 errors, got {error_count}"
     
     # Only one Razorpay order should be created
     assert len(adapter.calls) == 1, f"Expected 1 Razorpay call, got {len(adapter.calls)}"
     
     # Verify the Razorpay order was created with the correct amount
-    assert adapter.calls[0]["amount"] == 18499  # ₹18,499 in rupees
+    assert adapter.calls[0]["amount"] == 1_849_900  # Razorpay amounts are paise.

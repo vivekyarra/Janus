@@ -76,6 +76,13 @@ def _extract_categories(instruction: str) -> list[str]:
 
 def _extract_conditions(instruction: str) -> list[str]:
     lower = instruction.lower()
+    negative_condition = re.compile(
+        r"\b(?:no|not|nothing|avoid|without|exclude)\b(?:\s+\w+){0,2}\s+"
+        r"(?:refurbished|renewed|used|pre-owned|open[ -]box)\b",
+        re.IGNORECASE,
+    )
+    if negative_condition.search(lower):
+        return ["new"]
     if "refurbished" in lower or "renewed" in lower:
         return ["refurbished"]
     if "used" in lower or "pre-owned" in lower:

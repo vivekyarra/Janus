@@ -11,7 +11,7 @@ from app.services.audit_service import write_audit
 from app.services.intent_compiler import compile_intent
 from app.services.revocation_service import revoke_mandate as revoke_mandate_service
 from app.services.signature_service import SignatureService, canonical_json_bytes, canonical_mandate_payload, payload_sha256
-from app.services.auth_service import Actor, require_human_actor
+from app.services.auth_service import Actor, require_human_actor, require_resource_owner
 
 
 router = APIRouter(prefix="/api/v1/mandates", tags=["mandates"])
@@ -41,16 +41,19 @@ def create_mandate(request: CreateMandateRequest, db: Session = Depends(get_db),
 
 
 @router.get("/{mandate_id}", response_model=MandateRead)
-def get_mandate(mandate_id: str, db: Session = Depends(get_db), _: Actor = Depends(require_human_actor)):
+def get_mandate(mandate_id: str, db: Session = Depends(get_db), actor: Actor = Depends(require_human_actor)):
     mandate = db.get(Mandate, mandate_id)
     if mandate is None:
         raise HTTPException(404, detail={"reason_code": "MANDATE_NOT_FOUND"})
+    require_resource_owner(mandate.created_by_subject, actor)
     return mandate
 
 
 @router.post("/{mandate_id}/revoke", response_model=MandateRead)
-def revoke_mandate(mandate_id: str, db: Session = Depends(get_db), _: Actor = Depends(require_human_actor)):
-    mandate = revoke_mandate_service(db, mandate_id)
-    if mandate is None:
+def revoke_mandate(mandate_id: str, db: Session = Depends(get_db), actor: Actor = Depends(require_human_actor)):
+    existing = db.get(Mandate, mandate_id)
+    if existing is None:
         raise HTTPException(404, detail={"reason_code": "MANDATE_NOT_FOUND"})
+    require_resource_owner(existing.created_by_subject, actor)
+    mandate = revoke_mandate_service(db, mandate_id)
     return mandate

@@ -111,7 +111,7 @@ def percentile(values: list[float], pct: float) -> float:
 
 
 def run_replay_live_test() -> tuple[int, int, int]:
-    """Runs a 20-request replay test and returns (allowed, blocked, orders_created)."""
+    """Runs a deterministic x20 replay policy check without an external provider call."""
     mandate = mandate_for({})
     product = product_for({})
     agent_req_id = "eval_replay_id_x20"
@@ -127,7 +127,7 @@ def run_replay_live_test() -> tuple[int, int, int]:
         )
         if result.status == "PASS":
             allowed_count += 1
-            orders_created += 1  # Simulating successful order reservation
+            orders_created += 1  # Counts authorization reservations, not provider orders.
         else:
             blocked_count += 1
 
@@ -293,7 +293,7 @@ def main() -> None:
     print(f"  P50 latency:                  {percentile(hard_latencies, 50):>7.2f} ms")
     print(f"  P95 latency:                  {percentile(hard_latencies, 95):>7.2f} ms")
 
-    print(f"\n[SECTION 2: REAL-WORLD SEMANTIC INTENT BENCHMARK]")
+    print(f"\n[SECTION 2: LABELED SEMANTIC POLICY FIXTURES]")
     print(f"  Evaluated intents:            {len(semantic_cases):>5} (English, Hinglish, Nuances, Conflicts)")
     print(f"  Autonomous-allow precision:   {autonomous_precision:>7.1%}")
     print(f"  False autonomous allows:      {false_allows:>5}  (KILLER TARGET: 0)")
@@ -314,14 +314,14 @@ def main() -> None:
     print(f"  End-to-end buyer scenarios:   {e2e_correct:>5} / {len(e2e_cases)}")
     print(f"  Scenario accuracy:            {e2e_correct / len(e2e_cases):>7.1%}")
 
-    print(f"\n[SECTION 6: LIVE REPLAY & IDEMPOTENCY ENFORCEMENT (x20 Test)]")
+    print(f"\n[SECTION 6: DETERMINISTIC REPLAY POLICY (x20 Test)]")
     print(f"  Unique allowed execution:     {allowed_x20:>5} (expected: 1)")
     print(f"  Duplicate replays blocked:    {duplicate_rejections:>5} (expected: 19)")
     print(f"  Unauthorized orders created:  {unauthorized_orders:>5} (TARGET: 0)")
 
     print("\n" + "=" * 60)
-    print("KEY SUBMISSION PROOF:")
-    print(f"  \"Across {len(semantic_cases)} unseen intents, JANUS had 0 unsafe autonomous approvals; uncertain cases were escalated.\"")
+    print("DETERMINISTIC HARNESS RESULT:")
+    print(f"  {len(semantic_cases)} labeled semantic fixtures matched their expected policy outcomes.")
     print("=" * 60)
 
     # Fail closed if any safety boundary violated

@@ -73,3 +73,59 @@ This log records failures encountered during the real build. It is intentionally
 - **Invariant affected:** Mandate creation availability; audit and authorization were blocked.
 - **Fix:** Migrated the local SQLite database schema by adding the missing nullable columns, matching the PostgreSQL Alembic migration contracts.
 - **Regression check:** Ran automated live verification (`verify_live.py`) covering all 4 demo beats; all endpoints returned expected structured decisions.
+
+## 2026-09-05 — Failed gateway run was stored as a live benchmark
+
+- **Symptom:** `evals/live_model_outputs.json` reported 200 requested cases but contained 0 successful outputs and 200 Vercel authentication failures.
+- **Root cause:** The runner exited successfully after recording per-case errors, and threshold analysis was optional despite the documented workflow.
+- **Invariant affected:** Evaluation honesty and reproducibility; runtime authorization was unaffected.
+- **Fix:** The live runner now checkpoints atomically, resumes matching model/dataset runs, retries transient provider failures, requires exactly 200 unique cases, fails the command when any case is missing, and generates confusion and threshold-sensitivity metrics by default.
+- **Regression check:** A one-case credential probe returned schema-valid Gemini output; the full run records its model ID, dataset SHA-256, timestamps, per-case raw output, latency, and completion flag.
+
+## 2026-09-05 — Protocol projection could not verify its own signature
+
+- **Symptom:** Exporting and immediately importing an interoperability envelope failed with a canonical-payload hash mismatch.
+- **Root cause:** The export discarded signed fields such as the original human instruction, then import attempted to invent them while reconstructing the signed bytes.
+- **Invariant affected:** Signed authority integrity; no execution path was reached.
+- **Fix:** Export carries the exact canonical signed mandate payload; import verifies its hash and signature and rejects any mismatch between signed bounds and projected envelope fields.
+- **Test added:** Export/import round-trip plus invalid signature, hash mismatch, incomplete proof, and projection-validation coverage.
+
+## 2026-09-05 — x20 PostgreSQL race fixture violated idempotency before racing
+
+- **Symptom:** The PostgreSQL adversarial suite failed while seeding 20 proposals with one unique `agent_request_id`.
+- **Root cause:** The test attempted to bypass the database uniqueness mechanism it was meant to validate and also compared a paise amount against a rupee value.
+- **Invariant affected:** Verification quality for replay and concurrency; production uniqueness correctly rejected the invalid fixture.
+- **Fix:** Twenty callers now race one persisted proposal. The assertion permits safe in-flight rejection or idempotent replay while requiring exactly one fresh execution and one provider call; amount assertions use paise.
+- **Regression check:** All four PostgreSQL row-lock, revocation, execution, and x20 race tests pass.
+
+## 2026-09-05 — Live evaluation post-processing failed after 200 successful calls
+
+- **Symptom:** The live runner completed and checkpointed all 200 Gemini outputs, then failed before writing confusion and threshold metrics.
+- **Root cause:** Direct script execution puts `scripts/` rather than the repository root on `sys.path`, so `from scripts.run_eval` could not resolve.
+- **Invariant affected:** Evaluation artifact completeness; all raw provider outputs remained safely checkpointed.
+- **Fix:** Import the adjacent deterministic helper as `run_eval`; the analyzer refuses incomplete checkpoints and does not repeat completed provider calls.
+- **Regression check:** Analyze-only mode generated metrics from the 200/200 complete, dataset-hashed output artifact.
+
+## 2026-09-05 — Negated condition expanded purchase authority
+
+- **Symptom:** Compiling “Nothing refurbished” displayed `allowed_conditions: refurbished` in the signed mandate preview.
+- **Root cause:** The condition extractor matched product-condition keywords without first recognizing nearby negation.
+- **Invariant affected:** Human delegation boundaries; the compiler could authorize the opposite of an explicit condition restriction.
+- **Fix:** Condition extraction now detects `no`, `not`, `nothing`, `avoid`, `without`, and `exclude` before used/refurbished/open-box terms and restricts the draft to `new`.
+- **Test added:** Negated refurbished intent compiles to `new`; explicitly requested refurbished intent still compiles to `refurbished`.
+
+## 2026-09-05 — Auth refresh silently displayed zero business data
+
+- **Symptom:** A transient missing Clerk token changed six catalog products and seven audit events to fake zero counts.
+- **Root cause:** Each refresh request swallowed authentication errors and substituted empty arrays; the token provider was also installed in an effect vulnerable to React StrictMode cleanup timing.
+- **Invariant affected:** Operator observability and UI truthfulness; backend authorization remained fail-closed.
+- **Fix:** The token provider is installed synchronously, refresh preserves last-known real state, and API failures surface through the visible error channel.
+- **Regression check:** Authenticated reload restores six products; all seven pages were checked for horizontal text overflow at the 1280x720 judge viewport.
+
+## 2026-09-05 â€” Interrupted live-model evidence was not publishable
+
+- **Symptom:** Earlier notes and the evaluation document described a completed 200-case Gemini run, while the retained checkpoint had only 162 successful calls and 38 failures.
+- **Root cause:** The original Gemini credential was supplied from the interactive clipboard and was unavailable when the evaluation was resumed; the resume text became the clipboard value instead.
+- **Invariant affected:** Evaluation honesty. This did not affect the deterministic hard gate or its fail-closed behavior.
+- **Fix:** The runner preserves the checkpoint and exits non-zero on incomplete runs. Public evaluation copy now labels the live result incomplete and removes unsupported model, calibration, and cost claims.
+- **Regression check:** The deterministic harness and test suite remain independently reproducible; live analysis refuses incomplete artifacts.

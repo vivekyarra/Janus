@@ -35,7 +35,7 @@ sequenceDiagram
 
 - `agent_request_id` is database-unique.
 - Execution locks proposal and mandate rows and re-runs the hard gate against current state before reservation.
-- Reservation commits before the external call. Once reserved, the mandate is consumed; uncertain Razorpay failure does not reopen authority.
+- The execution service records an atomic reservation before the external call. If Razorpay order creation fails, it rolls the reservation back in the database, records the failure, and returns a fail-closed result; no order is created.
 - Revocation takes the same mandate lock. Revocation-first blocks; reservation-first may complete and future attempts are denied.
 - The provider receipt is the JANUS proposal ID, giving a stable correlation key.
 
@@ -49,5 +49,4 @@ The signature covers instruction, hard constraints, semantic constraints, expiry
 | Database/authorization uncertainty | HTTP 500 fail-closed; no payment call |
 | Model timeout, malformed output, missing credential | `STEP_UP` |
 | Missing or hallucinated evidence field | `INSUFFICIENT_EVIDENCE` → `STEP_UP` |
-| Razorpay error | Reservation stays consumed; proposal `FAILED`; audited provider-call failure |
-
+| Razorpay error | Reservation is rolled back, proposal is marked `FAILED`, provider-call failure is audited, and no order is created |

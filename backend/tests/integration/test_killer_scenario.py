@@ -109,7 +109,7 @@ class KillerTestRazorpay(RazorpayPort):
 
     @property
     def public_key_id(self) -> str:
-        return "rzp_test_TYLX8xpOHRN4ur"
+        return "rzp_test_fixture_key"
 
     def create_order(
         self,

@@ -157,8 +157,8 @@ def assess_semantic_constraints(
             status = "INSUFFICIENT_EVIDENCE"
             confidence = 0.0
 
-        # Calibrated Abstention Mechanism:
-        # If status is SUPPORTED but model confidence is below the safety threshold,
+        # Conservative abstention mechanism. The score is model-reported and is not
+        # represented as a calibrated probability. If a SUPPORTED score is below the threshold,
         # fail closed to human supervision (STEP_UP via INSUFFICIENT_EVIDENCE).
         abstain = False
         reason = str(item.get("reason", ""))[:500]
@@ -166,7 +166,7 @@ def assess_semantic_constraints(
             status = "INSUFFICIENT_EVIDENCE"
             abstain = True
             reason = (
-                f"Epistemic confidence ({confidence:.2f}) below autonomous safety threshold "
+                f"Model-reported confidence ({confidence:.2f}) below autonomous safety threshold "
                 f"({confidence_threshold:.2f}). Abstaining from autonomous execution; escalating to human step-up."
             )
 

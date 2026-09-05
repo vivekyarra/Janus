@@ -52,6 +52,7 @@ def export_ap2_mandate(mandate: Mandate) -> dict[str, Any]:
             "signature_b64": mandate.signature,
             "public_key_pem": mandate.public_key,
             "canonical_payload_sha256": mandate.payload_hash,
+            "canonical_payload": json.loads(mandate.canonical_payload),
         },
         "metadata": {
             "standard": "https://github.com/agent-payments-protocol/spec/v1.0",
@@ -99,8 +100,9 @@ def import_ap2_mandate(envelope: dict[str, Any]) -> dict[str, Any]:
         if not all([signature_b64, public_key_pem, canonical_hash]):
             raise ValueError("AP2 envelope has incomplete cryptographic proof")
         
-        # Reconstruct and verify the payload
-        reconstructed_payload = {
+        # Prefer the exact signed payload. Protocol projections cannot safely
+        # reconstruct fields such as the original human instruction.
+        reconstructed_payload = crypto_proof.get("canonical_payload") or {
             "id": envelope.get("delegation_id"),
             "created_by_subject": envelope.get("principal", {}).get("subject"),
             "instruction_text": f"AP2 Delegated Authority from {envelope.get('principal', {}).get('subject', 'human')}",
@@ -130,9 +132,22 @@ def import_ap2_mandate(envelope: dict[str, Any]) -> dict[str, Any]:
         
         if not SignatureService.verify(canonical, signature_b64, public_key_pem):
             raise ValueError("AP2 signature verification failed: invalid signature")
+
+        signed_hard = reconstructed_payload.get("hard_constraints", {})
+        if (
+            reconstructed_payload.get("id") != envelope.get("delegation_id")
+            or signed_hard.get("max_amount_paise") != hard.get("max_amount_paise")
+            or signed_hard.get("allowed_merchants") != hard.get("allowed_merchants")
+            or signed_hard.get("allowed_categories") != hard.get("allowed_categories")
+        ):
+            raise ValueError("AP2 envelope projection does not match its signed payload")
     
     return {
-        "instruction_text": f"AP2 Delegated Authority from {envelope.get('principal', {}).get('subject', 'human')}",
+        "instruction_text": (
+            crypto_proof.get("canonical_payload", {}).get("instruction_text")
+            if crypto_proof
+            else None
+        ) or f"AP2 Delegated Authority from {envelope.get('principal', {}).get('subject', 'human')}",
         "hard_constraints": {
             "max_amount_paise": hard["max_amount_paise"],
             "allowed_currencies": [hard.get("currency", "INR")],

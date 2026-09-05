@@ -67,6 +67,7 @@ For a zero-PostgreSQL development run, omit `DATABASE_URL`; JANUS uses a reposit
 | `RAZORPAY_MODE` | Must remain `test` in JANUS v1 |
 | `AI_GATEWAY_API_KEY` or `VERCEL_OIDC_TOKEN` | Vercel AI Gateway authentication |
 | `LLM_MODEL` | Structured-output model slug, default `openai/gpt-5-mini` |
+| `GEMINI_API_KEY` / `GEMINI_MODEL` | Direct Gemini structured-output runtime and live evaluation alternative |
 | `FRONTEND_URL` | Exact allowed browser origin |
 | `SEED_DEMO_CATALOG` | Idempotently seed five deterministic demo products |
 
@@ -78,6 +79,7 @@ No credentials, private keys, or signing material are committed.
 .\.venv\Scripts\python -m pytest backend
 npm run build --prefix frontend
 .\.venv\Scripts\python scripts\run_eval.py
+.\.venv\Scripts\python scripts\run_live_model_eval.py --model gemini
 .\.venv\Scripts\python scripts\demo_reset.py
 ```
 
@@ -99,7 +101,7 @@ Current measured results are in [docs/evaluation-results.md](docs/evaluation-res
 
 JANUS calls `POST /v1/orders` from exactly one module: `backend/app/integrations/razorpay_adapter.py`. Amounts are integer currency subunits and the proposal ID is the unique receipt.
 
-## Five demo beats
+## Required demo beats and adversarial proof
 
 1. **Valid autonomous execution:** Product A → hard `PASS` → semantic `SUPPORTED` (confidence 0.96) → `ALLOW` → one Razorpay test order.
 2. **Hard violation:** Product B at ₹21,499 against ₹20,000 → `AMOUNT_LIMIT_EXCEEDED` → `BLOCK` → no Razorpay call.
@@ -109,14 +111,12 @@ JANUS calls `POST /v1/orders` from exactly one module: `backend/app/integrations
 
 See [docs/demo-script.md](docs/demo-script.md) for the exact step-by-step sequence.
 
-## Evaluation & Benchmark Proof
+## Evaluation evidence
 
-> **“Across 200 unseen intents, JANUS had 0 unsafe autonomous approvals; uncertain cases were escalated.”**
-
-- **Real-World Semantic Intent Benchmark (200 cases):** Covers English, Hinglish colloquialisms, nuanced linguistic preferences, and conflicting marketing copy vs merchant specs.
-- **Calibrated Confidence & Abstention:** Evaluates confidence $c \in [0.0, 1.0]$. When $c < 0.85$, JANUS automatically abstains from autonomous execution and fails closed to human `STEP_UP`. At $\tau = 0.85$, the false autonomous allow rate is strictly **0.0%**.
-- **Counterfactual Reasoning (25 pairs):** Proves single-attribute flips (e.g., `metallic_gold` $\to$ `matte_black`) consistently flip verdicts between `STEP_UP` and `ALLOW`.
-- **Protocol Interoperability:** Implements export/import interfaces for **AP2** (Agent Payments Protocol v1), **ACP** (Agentic Commerce Protocol v1), and **x402** payment envelope handshakes.
+- `scripts/run_eval.py` is a deterministic policy harness. Its semantic outputs are labeled fixtures, not model calls.
+- `scripts/run_live_model_eval.py --model gemini` sends all 200 distinct labeled cases to the configured live model, stores raw outputs with model and dataset provenance, and emits confusion/threshold files only after every call succeeds.
+- Threshold analysis uses the model's self-reported confidence as a conservative abstention signal. JANUS does **not** claim that score is a calibrated probability.
+- `evals/live_gemini_3_1_outputs.json`, `evals/live_model_metrics.json`, and `evals/threshold_metrics.json` are the auditable completed Gemini artifacts. Exact measured results, including the current-threshold safety limitation, are reported in [docs/evaluation-results.md](docs/evaluation-results.md).
 
 ## Repository map
 
@@ -127,8 +127,8 @@ backend/app/integrations    the only LLM and Razorpay network boundaries
 backend/app/api             thin transport routes
 backend/tests               unit, integration, and adversarial coverage
 frontend/src                operational authorization console
-evals                       deterministic boundary, 200 semantic cases, and benchmark reports
-scripts                     seed, reset, model benchmarks, and measured evaluation
+evals                       deterministic cases plus provenance-bound live model outputs
+scripts                     seed, reset, deterministic harness, and live model evaluation
 docs                        architecture, API, threat model, demo, failures, evaluation results
 ```
 
@@ -136,14 +136,14 @@ docs                        architecture, API, threat model, demo, failures, eva
 
 - Razorpay is test mode only; JANUS never moves real money in this build.
 - ECDSA signing demonstrates signed authority, not a production passkey/WebAuthn ceremony.
-- Interoperability adapters export/import AP2 and ACP envelopes and verify x402 payment headers.
-- No production identity provider is included; deploy only as a controlled demo.
+- AP2/ACP projections are experimental adapters, not standards-conformance claims; x402 deliberately returns `501 NOT_IMPLEMENTED` and remains outside the core build.
+- Clerk JWT verification is available and required by production configuration validation; local development can explicitly run without external identity.
 - Pre-model sanitization quarantines untrusted product text before LLM classification.
 - Reservation winning the database lock may finish; revocation winning first prevents it. This ordering is explicit and tested.
 - A Razorpay failure triggers an automatic reservation rollback in the database transaction, preventing execution slot burning while failing closed safely.
 - The Killer Scenario (`test_killer_scenario.py`) tests the complete 3-product lifecycle: hard overbudget block, semantic contradiction rejection, compliant candidate autonomous execution, server-side payment verification, and audit trail.
 
-JANUS is a focused buildathon system, not a claim of production readiness. Its narrower claim is testable: the payment boundary is explicit, auditable, and difficult for the buyer agent or semantic model to bypass. All 400+ evaluation cases pass deterministically.
+JANUS is a focused buildathon system, not a claim of production readiness. Its narrower claim is testable: the payment boundary is explicit, auditable, and difficult for the buyer agent or semantic model to bypass. Deterministic and live-model evidence are reported separately.
 
 ## Detailed evidence
 

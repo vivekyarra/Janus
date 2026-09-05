@@ -33,6 +33,10 @@ def test_agent_key_is_separate_and_constant_time_path(monkeypatch) -> None:
     assert auth_service.require_proposal_actor("Bearer " + "a" * 32).kind == "agent"
     with pytest.raises(HTTPException):
         auth_service.require_human_actor("Bearer " + "a" * 32)
+    with pytest.raises(HTTPException) as exc:
+        auth_service.require_proposal_actor("Bearer human-clerk-session")
+    assert exc.value.status_code == 403
+    assert exc.value.detail["reason_code"] == "AGENT_CREDENTIAL_REQUIRED"
 
 
 def test_production_configuration_fails_closed() -> None:

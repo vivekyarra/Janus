@@ -71,6 +71,14 @@ def require_proposal_actor(authorization: str | None = Header(default=None)) -> 
     token = _bearer(authorization)
     if settings.app_env != "production" and token == "demo_operator":
         return Actor(subject="user_demo_operator", kind="agent")
-    if settings.janus_agent_api_key and hmac.compare_digest(token, settings.janus_agent_api_key):
-        return Actor(subject="agent_api_key", kind="agent")
+    if settings.janus_agent_api_key:
+        if hmac.compare_digest(token, settings.janus_agent_api_key):
+            return Actor(subject="agent_api_key", kind="agent")
+        raise HTTPException(403, detail={"reason_code": "AGENT_CREDENTIAL_REQUIRED"})
     return _verify_clerk(token)
+
+
+def require_resource_owner(resource_subject: str | None, actor: Actor) -> None:
+    """Prevent authenticated humans from operating another human's authority."""
+    if not resource_subject or resource_subject != actor.subject:
+        raise HTTPException(403, detail={"reason_code": "RESOURCE_NOT_OWNED"})

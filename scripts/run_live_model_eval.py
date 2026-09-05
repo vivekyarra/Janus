@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import hashlib
 import sys
 import time
 from datetime import datetime, timezone
@@ -10,12 +11,23 @@ ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "backend"))
 
 from app.config import get_settings
-from app.integrations.llm_adapter import GeminiAdapter, VercelAIGatewayAdapter
+from app.integrations.llm_adapter import GeminiAdapter, SemanticModelUnavailable, VercelAIGatewayAdapter
+
+
+TRANSIENT_STATUS_CODES = {408, 429, 500, 502, 503, 504}
+
+
+def _write_checkpoint(output_path: Path, payload: dict) -> None:
+    temporary = output_path.with_suffix(output_path.suffix + ".tmp")
+    temporary.write_text(json.dumps(payload, indent=2, ensure_ascii=False), encoding="utf-8")
+    temporary.replace(output_path)
 
 
 def run_live_model_evaluation(
     model_name: str = "gemini",
-    output_file: str = "evals/live_model_outputs.json"
+    output_file: str = "evals/live_model_outputs.json",
+    *,
+    max_retries: int = 4,
 ) -> dict:
     """Run 200 semantic cases through live model and capture raw outputs."""
     settings = get_settings()
@@ -35,26 +47,86 @@ def run_live_model_evaluation(
         raise ValueError(f"Unsupported model: {model_name}")
     
     # Load test cases
-    cases = json.loads((ROOT / "evals" / "semantic_cases.json").read_text(encoding="utf-8"))
+    cases_path = ROOT / "evals" / "semantic_cases.json"
+    cases_bytes = cases_path.read_bytes()
+    cases = json.loads(cases_bytes.decode("utf-8"))
+    if len(cases) != 200:
+        raise ValueError(f"Live benchmark requires exactly 200 cases; found {len(cases)}")
+    if len({case["name"] for case in cases}) != len(cases):
+        raise ValueError("Live benchmark case names must be unique")
+    dataset_sha256 = hashlib.sha256(cases_bytes).hexdigest()
+    output_path = ROOT / output_file
     
-    results = []
-    errors = []
+    results: list[dict] = []
+    errors: list[dict] = []
     start_time = time.time()
+
+    if output_path.exists():
+        try:
+            prior = json.loads(output_path.read_text(encoding="utf-8"))
+            metadata = prior.get("evaluation_metadata", {})
+            if (
+                metadata.get("model_name") == model_name
+                and metadata.get("model_id") == model_id
+                and metadata.get("dataset_sha256") == dataset_sha256
+                and not metadata.get("complete", False)
+            ):
+                results = list(prior.get("results", []))
+                print(f"Resuming verified checkpoint at {len(results)}/{len(cases)} cases", flush=True)
+        except (OSError, ValueError, TypeError):
+            pass
+
+    def checkpoint() -> dict:
+        elapsed = time.time() - start_time
+        payload = {
+            "evaluation_metadata": {
+                "model_name": model_name,
+                "model_id": model_id,
+                "dataset_sha256": dataset_sha256,
+                "total_cases": len(cases),
+                "successful_evaluations": len(results),
+                "failed_evaluations": len(errors),
+                "total_time_seconds": round(elapsed, 2),
+                "average_latency_ms": round(sum(r["latency_ms"] for r in results) / len(results), 2) if results else 0,
+                "evaluation_start": datetime.fromtimestamp(start_time, timezone.utc).isoformat(),
+                "evaluation_end": datetime.now(timezone.utc).isoformat(),
+                "complete": len(results) == len(cases) and not errors,
+            },
+            "results": results,
+            "errors": errors,
+        }
+        _write_checkpoint(output_path, payload)
+        return payload
     
     print(f"Running {len(cases)} cases through {model_name} ({model_id})...")
     print("=" * 70)
     
+    completed_names = {result["case_name"] for result in results}
     for i, case in enumerate(cases, 1):
+        if case["name"] in completed_names:
+            continue
         case_start = time.time()
         timestamp = datetime.now(timezone.utc).isoformat()
         
         try:
-            # Call the actual model
-            output = adapter.classify(
-                instruction=case["instruction"],
-                constraints=[case["constraint"]],
-                evidence=case["evidence"]
-            )
+            output = None
+            for attempt in range(max_retries + 1):
+                try:
+                    output = adapter.classify(
+                        instruction=case["instruction"],
+                        constraints=[case["constraint"]],
+                        evidence=case["evidence"],
+                    )
+                    break
+                except SemanticModelUnavailable as exc:
+                    if exc.status_code not in TRANSIENT_STATUS_CODES or attempt == max_retries:
+                        raise
+                    wait_seconds = min(60, 5 * (2 ** attempt))
+                    print(f"Transient provider error on case {i}; retry {attempt + 1}/{max_retries} in {wait_seconds}s", flush=True)
+                    time.sleep(wait_seconds)
+
+            if output is None:
+                raise SemanticModelUnavailable("Model returned no result")
             
             latency_ms = (time.time() - case_start) * 1000
             
@@ -72,9 +144,9 @@ def run_live_model_evaluation(
                 "expected_decision": case["expected"]
             }
             results.append(result)
-            
-            if i % 20 == 0:
-                print(f"Processed {i}/{len(cases)} cases...")
+            errors[:] = [error for error in errors if error["case_name"] != case["name"]]
+            checkpoint()
+            print(f"Processed {i}/{len(cases)}: {case['name']} ({latency_ms:.0f}ms)", flush=True)
                 
         except Exception as e:
             error = {
@@ -87,29 +159,12 @@ def run_live_model_evaluation(
                 "error_type": type(e).__name__
             }
             errors.append(error)
-            print(f"ERROR on case {i} ({case['name']}): {e}")
+            checkpoint()
+            print(f"ERROR on case {i} ({case['name']}): {type(e).__name__}: {e}", flush=True)
     
     total_time = time.time() - start_time
     
-    # Save results
-    output_data = {
-        "evaluation_metadata": {
-            "model_name": model_name,
-            "model_id": model_id,
-            "total_cases": len(cases),
-            "successful_evaluations": len(results),
-            "failed_evaluations": len(errors),
-            "total_time_seconds": round(total_time, 2),
-            "average_latency_ms": round(sum(r["latency_ms"] for r in results) / max(1, len(results)), 2) if results else 0,
-            "evaluation_start": datetime.fromtimestamp(start_time, timezone.utc).isoformat(),
-            "evaluation_end": datetime.now(timezone.utc).isoformat()
-        },
-        "results": results,
-        "errors": errors
-    }
-    
-    output_path = ROOT / output_file
-    output_path.write_text(json.dumps(output_data, indent=2, ensure_ascii=False), encoding="utf-8")
+    output_data = checkpoint()
     
     print("=" * 70)
     print(f"Evaluation complete!")
@@ -118,6 +173,9 @@ def run_live_model_evaluation(
     print(f"  Total time: {total_time:.2f}s")
     print(f"  Avg latency: {output_data['evaluation_metadata']['average_latency_ms']:.2f}ms")
     print(f"  Results saved to: {output_path}")
+
+    if errors or len(results) != len(cases):
+        raise RuntimeError(f"Live evaluation incomplete: {len(results)}/{len(cases)} succeeded")
     
     return output_data
 
@@ -126,9 +184,9 @@ def generate_confusion_matrix_from_live_outputs(output_file: str = "evals/live_m
     """Generate confusion matrix and metrics from live model outputs."""
     data = json.loads((ROOT / output_file).read_text(encoding="utf-8"))
     
-    if not data["results"]:
-        print("No results to analyze")
-        return {}
+    metadata = data.get("evaluation_metadata", {})
+    if not metadata.get("complete") or len(data.get("results", [])) != metadata.get("total_cases"):
+        raise ValueError("Refusing to report metrics from an incomplete live evaluation")
     
     # Import decision engine components
     from app.services.decision_engine import decide
@@ -136,7 +194,7 @@ def generate_confusion_matrix_from_live_outputs(output_file: str = "evals/live_m
     from app.services.semantic_scorer import assess_semantic_constraints
     from app.db.models import Mandate, Product
     from datetime import timedelta
-    from scripts.run_eval import FixtureModel, mandate_for, product_for
+    from run_eval import FixtureModel, mandate_for, product_for
     
     # Create baseline mandate and product for hard gate
     mandate = mandate_for({})
@@ -224,14 +282,14 @@ def generate_threshold_metrics(output_file: str = "evals/live_model_outputs.json
     """Generate metrics across different confidence thresholds."""
     data = json.loads((ROOT / output_file).read_text(encoding="utf-8"))
     
-    if not data["results"]:
-        print("No results to analyze")
-        return {}
+    metadata = data.get("evaluation_metadata", {})
+    if not metadata.get("complete") or len(data.get("results", [])) != metadata.get("total_cases"):
+        raise ValueError("Refusing to report thresholds from an incomplete live evaluation")
     
     from app.services.decision_engine import decide
     from app.services.hard_gate import evaluate_hard_constraints
     from app.services.semantic_scorer import assess_semantic_constraints
-    from scripts.run_eval import FixtureModel, mandate_for, product_for
+    from run_eval import FixtureModel, mandate_for, product_for
     from datetime import datetime, timezone
     
     mandate = mandate_for({})
@@ -304,16 +362,16 @@ if __name__ == "__main__":
     parser.add_argument("--model", choices=["gemini", "vercel"], default="gemini", help="Model to use")
     parser.add_argument("--output", default="evals/live_model_outputs.json", help="Output file")
     parser.add_argument("--analyze-only", action="store_true", help="Only analyze existing outputs")
-    parser.add_argument("--threshold-analysis", action="store_true", help="Generate threshold metrics")
+    parser.add_argument("--skip-threshold-analysis", action="store_true", help="Skip threshold sensitivity metrics")
     
     args = parser.parse_args()
     
     if args.analyze_only:
         generate_confusion_matrix_from_live_outputs(args.output)
-        if args.threshold_analysis:
+        if not args.skip_threshold_analysis:
             generate_threshold_metrics(args.output)
     else:
         run_live_model_evaluation(args.model, args.output)
         generate_confusion_matrix_from_live_outputs(args.output)
-        if args.threshold_analysis:
+        if not args.skip_threshold_analysis:
             generate_threshold_metrics(args.output)

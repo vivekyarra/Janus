@@ -3,6 +3,7 @@ from __future__ import annotations
 from typing import Any
 
 from fastapi import APIRouter, Depends, Header, HTTPException
+from fastapi.responses import JSONResponse
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
 
@@ -67,5 +68,5 @@ def verify_x402(authorization: str | None = Header(default=None)):
     """
     result = verify_x402_handshake(authorization)
     if result["http_code"] != 200:
-        raise HTTPException(status_code=result["http_code"], detail=result)
+        return JSONResponse(status_code=result["http_code"], content=result)
     return result
