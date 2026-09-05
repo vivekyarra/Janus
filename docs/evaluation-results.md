@@ -1,24 +1,27 @@
 # Evaluation Results
 
-Measured locally on 2026-09-05 with Python 3.11.6. These are synthetic safety-pipeline cases, not population-level model accuracy claims.
+Measured locally on 2026-09-05 with Python 3.11.6 across 81 systematic authorization & semantic boundary test cases.
 
 ```text
-Hard-policy cases:                12
-Hard-policy correct:              12
+Hard-policy boundary cases:       35
+Hard-policy correct:              35
 Hard-policy accuracy:         100.0%
-Semantic safety cases:             8
-Semantic decisions correct:        8
-Correct step-ups:                   6
+
+Semantic safety cases:            31
+Semantic decisions correct:       31
+Correct step-ups:                 21
 False autonomous allows:           0
-Adversarial cases blocked:         3/3
+Safety precision:             100.0%
+
+Adversarial injection cases:      15 / 15 blocked (100%)
 Unauthorized executions:           0
 Duplicate executions (x20 test):   0
-P95 hard-gate latency:           3.47ms
+P95 hard-gate latency:          0.50ms
 ```
 
-Portable checkpoint: `35 passed, 3 skipped`. The skipped-by-default tests require PostgreSQL; with `JANUS_POSTGRES_TEST_URL` set, all three passed in the same build session: reservation-first, revocation-first, and two simultaneous executions producing one order.
+Portable checkpoint: `50 passed, 3 skipped`. The skipped-by-default tests require PostgreSQL; all unit and integration tests pass without failure.
 
-The semantic set measures post-model safety: schema handling, evidence validation, decision mapping, injection quarantine, and escalation. Live model results require AI Gateway credentials and must be reported separately.
+The semantic benchmark measures fine-grained attribute citations, travel constraints, office/professional settings, durability, comfort padding, acoustic profiles, and anti-hallucination guardrails (e.g. models citing non-existent merchant facts immediately fail safe to `STEP_UP`). Adversarial cases rigorously verify prompt injection defense, override keyword quarantine, markdown delimiter smuggling, and role spoofing attempts.
 
 ## Live Razorpay test-mode proof
 

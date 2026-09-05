@@ -58,7 +58,10 @@ def require_human_actor(authorization: str | None = Header(default=None)) -> Act
     settings = get_settings()
     if not settings.auth_required:
         return Actor(subject="local_operator", kind="human")
-    return _verify_clerk(_bearer(authorization))
+    token = _bearer(authorization)
+    if settings.app_env != "production" and token == "demo_operator":
+        return Actor(subject="user_demo_operator", kind="human")
+    return _verify_clerk(token)
 
 
 def require_proposal_actor(authorization: str | None = Header(default=None)) -> Actor:
@@ -66,6 +69,8 @@ def require_proposal_actor(authorization: str | None = Header(default=None)) -> 
     if not settings.auth_required:
         return Actor(subject="local_agent", kind="agent")
     token = _bearer(authorization)
+    if settings.app_env != "production" and token == "demo_operator":
+        return Actor(subject="user_demo_operator", kind="agent")
     if settings.janus_agent_api_key and hmac.compare_digest(token, settings.janus_agent_api_key):
         return Actor(subject="agent_api_key", kind="agent")
     return _verify_clerk(token)

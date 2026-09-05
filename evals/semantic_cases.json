@@ -1,10 +1,581 @@
 [
-  {"name":"travel supported","instruction":"Good for travel","constraint":{"id":"travel","text":"good for travel"},"evidence":{"foldable":true,"travel_case":true},"model":{"status":"SUPPORTED","fields":["foldable","travel_case"]},"expected":"ALLOW"},
-  {"name":"flashy contradicted","instruction":"Nothing flashy","constraint":{"id":"not_flashy","text":"nothing flashy"},"evidence":{"color":"metallic gold","branding":"oversized"},"model":{"status":"CONTRADICTED","fields":["color","branding"]},"expected":"STEP_UP"},
-  {"name":"travel evidence missing","instruction":"Good for travel","constraint":{"id":"travel","text":"good for travel"},"evidence":{"noise_cancelling":true},"model":{"status":"INSUFFICIENT_EVIDENCE","fields":[]},"expected":"STEP_UP"},
-  {"name":"unsupported evidence citation","instruction":"Minimal","constraint":{"id":"minimal","text":"minimal"},"evidence":{"color":"black"},"model":{"status":"SUPPORTED","fields":["branding"]},"expected":"STEP_UP"},
-  {"name":"unsupported empty support","instruction":"Comfortable","constraint":{"id":"comfortable","text":"comfortable"},"evidence":{"weight_g":250},"model":{"status":"SUPPORTED","fields":[]},"expected":"STEP_UP"},
-  {"name":"explicit minimal support","instruction":"Minimal","constraint":{"id":"minimal","text":"minimal"},"evidence":{"branding":"minimal"},"model":{"status":"SUPPORTED","fields":["branding"]},"expected":"ALLOW"},
-  {"name":"explicit heavy contradiction","instruction":"Good for travel","constraint":{"id":"travel","text":"good for travel"},"evidence":{"weight_g":410,"foldable":false},"model":{"status":"CONTRADICTED","fields":["weight_g","foldable"]},"expected":"STEP_UP"},
-  {"name":"missing model item","instruction":"Comfortable","constraint":{"id":"comfortable","text":"comfortable"},"evidence":{"padding":"memory foam"},"model":null,"expected":"STEP_UP"}
+  {
+    "name": "travel complete support",
+    "instruction": "Good for travel",
+    "constraint": {
+      "id": "travel",
+      "text": "good for travel"
+    },
+    "evidence": {
+      "foldable": true,
+      "travel_case": true,
+      "weight_g": 254
+    },
+    "model": {
+      "status": "SUPPORTED",
+      "fields": [
+        "foldable",
+        "travel_case",
+        "weight_g"
+      ]
+    },
+    "expected": "ALLOW"
+  },
+  {
+    "name": "travel compact support",
+    "instruction": "Compact for travel",
+    "constraint": {
+      "id": "compact",
+      "text": "compact for travel"
+    },
+    "evidence": {
+      "foldable": true,
+      "dimensions_cm": "18x15x5"
+    },
+    "model": {
+      "status": "SUPPORTED",
+      "fields": [
+        "foldable",
+        "dimensions_cm"
+      ]
+    },
+    "expected": "ALLOW"
+  },
+  {
+    "name": "travel rigid contradiction",
+    "instruction": "Good for travel",
+    "constraint": {
+      "id": "travel",
+      "text": "good for travel"
+    },
+    "evidence": {
+      "foldable": false,
+      "collection": "home"
+    },
+    "model": {
+      "status": "CONTRADICTED",
+      "fields": [
+        "foldable",
+        "collection"
+      ]
+    },
+    "expected": "STEP_UP"
+  },
+  {
+    "name": "travel heavy contradiction",
+    "instruction": "Lightweight travel",
+    "constraint": {
+      "id": "lightweight",
+      "text": "lightweight for travel"
+    },
+    "evidence": {
+      "weight_g": 450,
+      "foldable": false
+    },
+    "model": {
+      "status": "CONTRADICTED",
+      "fields": [
+        "weight_g"
+      ]
+    },
+    "expected": "STEP_UP"
+  },
+  {
+    "name": "travel evidence missing",
+    "instruction": "Good for travel",
+    "constraint": {
+      "id": "travel",
+      "text": "good for travel"
+    },
+    "evidence": {
+      "noise_cancelling": true,
+      "color": "black"
+    },
+    "model": {
+      "status": "INSUFFICIENT_EVIDENCE",
+      "fields": []
+    },
+    "expected": "STEP_UP"
+  },
+  {
+    "name": "not flashy gold contradiction",
+    "instruction": "Nothing flashy",
+    "constraint": {
+      "id": "not_flashy",
+      "text": "nothing flashy"
+    },
+    "evidence": {
+      "color": "metallic gold",
+      "branding": "oversized"
+    },
+    "model": {
+      "status": "CONTRADICTED",
+      "fields": [
+        "color",
+        "branding"
+      ]
+    },
+    "expected": "STEP_UP"
+  },
+  {
+    "name": "not flashy neon contradiction",
+    "instruction": "Nothing flashy",
+    "constraint": {
+      "id": "not_flashy",
+      "text": "nothing flashy"
+    },
+    "evidence": {
+      "lighting": "rgb rainbow led",
+      "branding": "huge"
+    },
+    "model": {
+      "status": "CONTRADICTED",
+      "fields": [
+        "lighting",
+        "branding"
+      ]
+    },
+    "expected": "STEP_UP"
+  },
+  {
+    "name": "minimal design support",
+    "instruction": "Minimal aesthetic",
+    "constraint": {
+      "id": "minimal",
+      "text": "minimal aesthetic"
+    },
+    "evidence": {
+      "branding": "minimal",
+      "finish": "matte"
+    },
+    "model": {
+      "status": "SUPPORTED",
+      "fields": [
+        "branding",
+        "finish"
+      ]
+    },
+    "expected": "ALLOW"
+  },
+  {
+    "name": "minimal color support",
+    "instruction": "Subtle minimal design",
+    "constraint": {
+      "id": "minimal",
+      "text": "subtle minimal design"
+    },
+    "evidence": {
+      "branding": "discreet",
+      "color": "graphite black"
+    },
+    "model": {
+      "status": "SUPPORTED",
+      "fields": [
+        "branding",
+        "color"
+      ]
+    },
+    "expected": "ALLOW"
+  },
+  {
+    "name": "flashy ambiguity missing finish",
+    "instruction": "Nothing flashy",
+    "constraint": {
+      "id": "not_flashy",
+      "text": "nothing flashy"
+    },
+    "evidence": {
+      "category": "headphones",
+      "condition": "new"
+    },
+    "model": {
+      "status": "INSUFFICIENT_EVIDENCE",
+      "fields": []
+    },
+    "expected": "STEP_UP"
+  },
+  {
+    "name": "office appropriate support",
+    "instruction": "Appropriate for office",
+    "constraint": {
+      "id": "office_use",
+      "text": "appropriate for office"
+    },
+    "evidence": {
+      "style": "executive professional",
+      "color": "black"
+    },
+    "model": {
+      "status": "SUPPORTED",
+      "fields": [
+        "style",
+        "color"
+      ]
+    },
+    "expected": "ALLOW"
+  },
+  {
+    "name": "office gamer contradiction",
+    "instruction": "Appropriate for professional office",
+    "constraint": {
+      "id": "office_use",
+      "text": "appropriate for office"
+    },
+    "evidence": {
+      "style": "gamer aggressive",
+      "rgb": true
+    },
+    "model": {
+      "status": "CONTRADICTED",
+      "fields": [
+        "style",
+        "rgb"
+      ]
+    },
+    "expected": "STEP_UP"
+  },
+  {
+    "name": "office missing microphone evidence",
+    "instruction": "Good for meetings",
+    "constraint": {
+      "id": "meeting_ready",
+      "text": "good for meetings"
+    },
+    "evidence": {
+      "impedance_ohms": 32
+    },
+    "model": {
+      "status": "INSUFFICIENT_EVIDENCE",
+      "fields": []
+    },
+    "expected": "STEP_UP"
+  },
+  {
+    "name": "comfort premium padding support",
+    "instruction": "Comfortable for long sessions",
+    "constraint": {
+      "id": "comfort",
+      "text": "comfortable for long sessions"
+    },
+    "evidence": {
+      "ear_cushions": "plush memory foam",
+      "headband": "padded leatherette"
+    },
+    "model": {
+      "status": "SUPPORTED",
+      "fields": [
+        "ear_cushions",
+        "headband"
+      ]
+    },
+    "expected": "ALLOW"
+  },
+  {
+    "name": "comfort high clamping contradiction",
+    "instruction": "Comfortable lightweight",
+    "constraint": {
+      "id": "comfort",
+      "text": "comfortable"
+    },
+    "evidence": {
+      "clamping_force": "extra high studio",
+      "cushions": "stiff vinyl"
+    },
+    "model": {
+      "status": "CONTRADICTED",
+      "fields": [
+        "clamping_force",
+        "cushions"
+      ]
+    },
+    "expected": "STEP_UP"
+  },
+  {
+    "name": "comfort unspecified evidence",
+    "instruction": "Comfortable",
+    "constraint": {
+      "id": "comfort",
+      "text": "comfortable"
+    },
+    "evidence": {
+      "bluetooth_version": "5.3"
+    },
+    "model": {
+      "status": "INSUFFICIENT_EVIDENCE",
+      "fields": []
+    },
+    "expected": "STEP_UP"
+  },
+  {
+    "name": "active noise cancelling support",
+    "instruction": "Must have noise cancelling",
+    "constraint": {
+      "id": "anc",
+      "text": "must have noise cancelling"
+    },
+    "evidence": {
+      "noise_cancelling": true,
+      "anc_type": "hybrid active"
+    },
+    "model": {
+      "status": "SUPPORTED",
+      "fields": [
+        "noise_cancelling",
+        "anc_type"
+      ]
+    },
+    "expected": "ALLOW"
+  },
+  {
+    "name": "passive only contradiction",
+    "instruction": "Active noise cancellation required",
+    "constraint": {
+      "id": "anc",
+      "text": "active noise cancelling"
+    },
+    "evidence": {
+      "noise_cancelling": false,
+      "isolation": "passive only"
+    },
+    "model": {
+      "status": "CONTRADICTED",
+      "fields": [
+        "noise_cancelling",
+        "isolation"
+      ]
+    },
+    "expected": "STEP_UP"
+  },
+  {
+    "name": "noise cancelling missing spec",
+    "instruction": "Noise cancelling",
+    "constraint": {
+      "id": "anc",
+      "text": "noise cancelling"
+    },
+    "evidence": {
+      "driver_size_mm": 40
+    },
+    "model": {
+      "status": "INSUFFICIENT_EVIDENCE",
+      "fields": []
+    },
+    "expected": "STEP_UP"
+  },
+  {
+    "name": "water resistant sports support",
+    "instruction": "Water resistant for gym",
+    "constraint": {
+      "id": "water_resist",
+      "text": "water resistant for gym"
+    },
+    "evidence": {
+      "ip_rating": "IPX5 water resistant",
+      "sweatproof": true
+    },
+    "model": {
+      "status": "SUPPORTED",
+      "fields": [
+        "ip_rating",
+        "sweatproof"
+      ]
+    },
+    "expected": "ALLOW"
+  },
+  {
+    "name": "not water resistant contradiction",
+    "instruction": "Sweat resistant",
+    "constraint": {
+      "id": "sweatproof",
+      "text": "sweat resistant"
+    },
+    "evidence": {
+      "water_resistance": "none",
+      "warning": "avoid moisture"
+    },
+    "model": {
+      "status": "CONTRADICTED",
+      "fields": [
+        "water_resistance",
+        "warning"
+      ]
+    },
+    "expected": "STEP_UP"
+  },
+  {
+    "name": "durability missing ip rating",
+    "instruction": "Water resistant",
+    "constraint": {
+      "id": "water_resist",
+      "text": "water resistant"
+    },
+    "evidence": {
+      "cable_length_m": 1.2
+    },
+    "model": {
+      "status": "INSUFFICIENT_EVIDENCE",
+      "fields": []
+    },
+    "expected": "STEP_UP"
+  },
+  {
+    "name": "unsupported evidence cited by model",
+    "instruction": "Minimal",
+    "constraint": {
+      "id": "minimal",
+      "text": "minimal"
+    },
+    "evidence": {
+      "color": "black"
+    },
+    "model": {
+      "status": "SUPPORTED",
+      "fields": [
+        "non_existent_field"
+      ]
+    },
+    "expected": "STEP_UP"
+  },
+  {
+    "name": "empty support fields cited",
+    "instruction": "Comfortable",
+    "constraint": {
+      "id": "comfort",
+      "text": "comfortable"
+    },
+    "evidence": {
+      "weight_g": 250
+    },
+    "model": {
+      "status": "SUPPORTED",
+      "fields": []
+    },
+    "expected": "STEP_UP"
+  },
+  {
+    "name": "model service timeout missing result",
+    "instruction": "Comfortable",
+    "constraint": {
+      "id": "comfort",
+      "text": "comfortable"
+    },
+    "evidence": {
+      "padding": "memory foam"
+    },
+    "model": null,
+    "expected": "STEP_UP"
+  },
+  {
+    "name": "partial evidence citation hallucination",
+    "instruction": "Travel ready",
+    "constraint": {
+      "id": "travel",
+      "text": "travel ready"
+    },
+    "evidence": {
+      "foldable": true
+    },
+    "model": {
+      "status": "SUPPORTED",
+      "fields": [
+        "foldable",
+        "invented_attribute"
+      ]
+    },
+    "expected": "STEP_UP"
+  },
+  {
+    "name": "contradiction without citing catalog facts",
+    "instruction": "Minimal",
+    "constraint": {
+      "id": "minimal",
+      "text": "minimal"
+    },
+    "evidence": {
+      "color": "silver"
+    },
+    "model": {
+      "status": "CONTRADICTED",
+      "fields": [
+        "imaginary_field"
+      ]
+    },
+    "expected": "STEP_UP"
+  },
+  {
+    "name": "premium understated support",
+    "instruction": "Premium but understated",
+    "constraint": {
+      "id": "understated",
+      "text": "premium but understated"
+    },
+    "evidence": {
+      "materials": "anodized aluminum",
+      "branding": "subtle engraved"
+    },
+    "model": {
+      "status": "SUPPORTED",
+      "fields": [
+        "materials",
+        "branding"
+      ]
+    },
+    "expected": "ALLOW"
+  },
+  {
+    "name": "extravagant loud contradiction",
+    "instruction": "Understated premium",
+    "constraint": {
+      "id": "understated",
+      "text": "understated"
+    },
+    "evidence": {
+      "crystals": "swarovski encrusted",
+      "branding": "neon gold"
+    },
+    "model": {
+      "status": "CONTRADICTED",
+      "fields": [
+        "crystals",
+        "branding"
+      ]
+    },
+    "expected": "STEP_UP"
+  },
+  {
+    "name": "sustainable materials support",
+    "instruction": "Eco-friendly sustainable materials",
+    "constraint": {
+      "id": "eco",
+      "text": "sustainable materials"
+    },
+    "evidence": {
+      "recycled_plastic_pct": 75,
+      "packaging": "100% biodegradable"
+    },
+    "model": {
+      "status": "SUPPORTED",
+      "fields": [
+        "recycled_plastic_pct",
+        "packaging"
+      ]
+    },
+    "expected": "ALLOW"
+  },
+  {
+    "name": "sustainable missing facts",
+    "instruction": "Eco friendly",
+    "constraint": {
+      "id": "eco",
+      "text": "eco friendly"
+    },
+    "evidence": {
+      "driver_type": "planar magnetic"
+    },
+    "model": {
+      "status": "INSUFFICIENT_EVIDENCE",
+      "fields": []
+    },
+    "expected": "STEP_UP"
+  }
 ]

@@ -5,7 +5,15 @@ from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
-from app.api.schemas import ExecutionResponse, PaymentVerificationRequest, PaymentVerificationResponse, ProposalRequest, ProposalResponse
+from app.api.schemas import (
+    AutonomousShopRequest,
+    AutonomousShopResponse,
+    ExecutionResponse,
+    PaymentVerificationRequest,
+    PaymentVerificationResponse,
+    ProposalRequest,
+    ProposalResponse,
+)
 from app.api.dependencies import get_razorpay_adapter, get_semantic_model
 from app.db.models import CheckoutProposal, Mandate, Product
 from app.db.session import get_db
@@ -20,6 +28,7 @@ from app.services.decision_engine import decide
 from app.services.semantic_scorer import assess_semantic_constraints
 from app.services.stepup_service import create_step_up
 from app.services.auth_service import Actor, require_proposal_actor
+from app.services.buyer_agent import AutonomousBuyerAgent
 from app.services.payment_service import verify_checkout_payment
 from app.config import get_settings
 
@@ -100,3 +109,16 @@ def verify_payment(proposal_id: str, request: PaymentVerificationRequest, db: Se
         return verify_checkout_payment(db, proposal_id, key_secret=get_settings().razorpay_key_secret, razorpay=razorpay, **request.model_dump())
     except JanusError as exc:
         raise HTTPException(exc.status_code, detail={"reason_code": exc.reason_code, "message": exc.message}) from exc
+
+
+@router.post("/autonomous-shop", response_model=AutonomousShopResponse)
+def autonomous_shop(
+    request: AutonomousShopRequest,
+    db: Session = Depends(get_db),
+    semantic_model: SemanticModelPort = Depends(get_semantic_model),
+    razorpay: RazorpayPort = Depends(get_razorpay_adapter),
+    actor: Actor = Depends(require_proposal_actor),
+):
+    agent = AutonomousBuyerAgent(db, semantic_model, razorpay, actor)
+    return agent.run(mandate_id=request.mandate_id, merchant_id=request.merchant_id, auto_execute=request.auto_execute)
+

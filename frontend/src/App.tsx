@@ -168,6 +168,55 @@ type RazorpaySuccess = {
   razorpay_signature: string;
 };
 
+type MerchantMetrics = {
+  merchant_id: string;
+  total_skus: number;
+  active_skus: number;
+  machine_readable_pct: number;
+  autonomous_gmv_paise: number;
+  prevented_overspend_paise: number;
+  total_proposals: number;
+  executed_proposals: number;
+  blocked_proposals: number;
+  conversion_rate_pct: number;
+};
+
+type AgentStep = {
+  step_num: number;
+  title: string;
+  detail: string;
+  status: string;
+};
+
+type CandidateEvaluation = {
+  product_id: string;
+  name: string;
+  price_paise: number;
+  hard_eligible: boolean;
+  rejection_reason: string | null;
+  semantic_score: number;
+  semantic_notes: string | null;
+};
+
+type AutonomousShopResult = {
+  mandate_id: string;
+  merchant_id: string;
+  steps: AgentStep[];
+  candidates_evaluated: CandidateEvaluation[];
+  selected_product_id: string | null;
+  selected_product_name: string | null;
+  agent_reasoning: string;
+  proposal_id: string | null;
+  decision: "ALLOW" | "BLOCK" | "STEP_UP";
+  reason_code: string | null;
+  razorpay_order_id: string | null;
+  status: string;
+  key_id: string | null;
+  amount_paise: number | null;
+  currency: string;
+  step_up_id: string | null;
+};
+
 declare global {
   interface Window {
     Razorpay?: new (options: Record<string, unknown>) => { open: () => void };
@@ -279,18 +328,25 @@ export default function App({
   const [busy, setBusy] = useState("");
   const [error, setError] = useState("");
   const [merchantId, setMerchantId] = useState(import.meta.env.VITE_MERCHANT_ID ?? "merchant_demo");
+  const [metrics, setMetrics] = useState<MerchantMetrics | null>(null);
+  const [buyerResult, setBuyerResult] = useState<AutonomousShopResult | null>(null);
 
   const refresh = useCallback(async () => {
     try {
       const catalogPath = merchantId
         ? `/api/v1/products?merchant_id=${encodeURIComponent(merchantId)}`
         : "/api/v1/products";
-      const [catalogRes, eventsRes] = await Promise.all([
+      const metricsPath = merchantId
+        ? `/api/v1/products/metrics?merchant_id=${encodeURIComponent(merchantId)}`
+        : "/api/v1/products/metrics";
+      const [catalogRes, eventsRes, metricsRes] = await Promise.all([
         request<Product[]>(catalogPath).catch(() => []),
         request<AuditEvent[]>("/api/v1/audit?limit=100").catch(() => []),
+        request<MerchantMetrics>(metricsPath).catch(() => null),
       ]);
       const catalog = Array.isArray(catalogRes) ? catalogRes : [];
       const events = Array.isArray(eventsRes) ? eventsRes : [];
+      if (metricsRes) setMetrics(metricsRes);
 
       if (catalog.length === 0 && merchantId !== "merchant_demo") {
         const allProducts = await request<Product[]>("/api/v1/products").catch(() => []);
@@ -409,6 +465,46 @@ export default function App({
         setStepUp((current) => (current ? { ...current, status: "APPROVED" } : current));
       } else {
         setStepUp(await request<Record<string, unknown>>(`/api/v1/step-ups/${decision.step_up_id}/reject`, { method: "POST" }));
+      }
+    });
+
+  const dispatchAutonomousShop = (autoExecute: boolean = true) =>
+    mandate &&
+    act("autonomous-shop", async () => {
+      const res = await request<AutonomousShopResult>("/api/v1/proposals/autonomous-shop", {
+        method: "POST",
+        body: JSON.stringify({
+          mandate_id: mandate.id,
+          merchant_id: merchantId,
+          auto_execute: autoExecute,
+        }),
+      });
+      setBuyerResult(res);
+      setDecision({
+        decision: res.decision,
+        reason_code: res.reason_code,
+        proposal_id: res.proposal_id ?? "",
+        step_up_id: res.step_up_id,
+        hard_gate: { status: res.decision === "BLOCK" ? "FAIL" : "PASS", reason_code: res.reason_code, checks: [] },
+        semantic: null,
+      });
+      if (res.razorpay_order_id) {
+        setOrder({
+          proposal_id: res.proposal_id ?? "",
+          razorpay_order_id: res.razorpay_order_id,
+          status: res.status,
+          idempotent_replay: false,
+          key_id: res.key_id,
+          amount: res.amount_paise,
+          currency: res.currency,
+          product_name: res.selected_product_name,
+        });
+      } else {
+        setOrder(null);
+      }
+      setPayment(null);
+      if (res.step_up_id) {
+        setStepUp(await request(`/api/v1/step-ups/${res.step_up_id}`));
       }
     });
 
@@ -636,6 +732,7 @@ export default function App({
                   refresh={refresh}
                   busy={busy}
                   act={act}
+                  metrics={metrics}
                 />
               )}
 
@@ -675,6 +772,9 @@ export default function App({
                   order={order}
                   busy={busy}
                   goStepUp={() => setView("stepup")}
+                  buyerResult={buyerResult}
+                  dispatchAutonomousShop={dispatchAutonomousShop}
+                  merchantId={merchantId}
                 />
               )}
 
@@ -1012,6 +1112,7 @@ function CatalogView({
   refresh,
   busy,
   act,
+  metrics,
 }: {
   products: Product[];
   merchantId: string;
@@ -1019,6 +1120,7 @@ function CatalogView({
   refresh: () => Promise<void>;
   busy: string;
   act: (label: string, fn: () => Promise<void>) => Promise<void>;
+  metrics: MerchantMetrics | null;
 }) {
   const [payload, setPayload] = useState("");
   const [result, setResult] = useState<{ created: number; updated: number; unchanged: number; total: number } | null>(null);
@@ -1058,6 +1160,42 @@ function CatalogView({
           Pricing, currency, and attributes are owned exclusively by the merchant. Autonomous agents
           can never override these authoritative values.
         </p>
+      </div>
+
+      {/* Track 01: Merchant Commerce Telemetry Banner */}
+      <div className="track01-metrics-banner">
+        <div className="metric-stat-card">
+          <span className="metric-stat-kicker">Track 01 Merchant SKUs</span>
+          <span className="metric-stat-value">{metrics?.total_skus ?? products.length} Active</span>
+          <span className="metric-stat-sub">
+            <Check size={12} color="#059669" />
+            <span>{metrics?.machine_readable_pct ?? 100}% Machine-Readable v1</span>
+          </span>
+        </div>
+        <div className="metric-stat-card">
+          <span className="metric-stat-kicker">Autonomous GMV Settled</span>
+          <span className="metric-stat-value green">{money(metrics?.autonomous_gmv_paise ?? 0)}</span>
+          <span className="metric-stat-sub">
+            <ShieldCheck size={12} color="#059669" />
+            <span>Razorpay Test Orders Settled</span>
+          </span>
+        </div>
+        <div className="metric-stat-card">
+          <span className="metric-stat-kicker">Prevented Overspend</span>
+          <span className="metric-stat-value purple">{money(metrics?.prevented_overspend_paise ?? 0)}</span>
+          <span className="metric-stat-sub">
+            <LockKeyhole size={12} color="#6a3df0" />
+            <span>Protected by Hard Limits</span>
+          </span>
+        </div>
+        <div className="metric-stat-card">
+          <span className="metric-stat-kicker">Agent Conversion Rate</span>
+          <span className="metric-stat-value">{metrics?.conversion_rate_pct ?? 0}%</span>
+          <span className="metric-stat-sub">
+            <Activity size={12} color="#565e52" />
+            <span>{metrics?.executed_proposals ?? 0} executed / {metrics?.total_proposals ?? 0} proposals</span>
+          </span>
+        </div>
       </div>
 
       <div className="catalog-layout">
@@ -1522,6 +1660,9 @@ function SimulatorView({
   order,
   busy,
   goStepUp,
+  buyerResult,
+  dispatchAutonomousShop,
+  merchantId,
 }: {
   mandate: Mandate | null;
   products: Product[];
@@ -1535,7 +1676,12 @@ function SimulatorView({
   order: Order | null;
   busy: string;
   goStepUp: () => void;
+  buyerResult: AutonomousShopResult | null;
+  dispatchAutonomousShop: (autoExecute?: boolean) => void;
+  merchantId: string;
 }) {
+  const [mode, setMode] = useState<"autonomous" | "interactive">("autonomous");
+
   return (
     <>
       <div className="view-heading">
@@ -1549,13 +1695,263 @@ function SimulatorView({
         </p>
       </div>
 
+      {/* Mode Toggle Bar: Autonomous Buyer vs Interactive Simulation */}
+      <div className="mode-toggle-bar">
+        <div className="mode-toggle-group">
+          <button
+            type="button"
+            className={`mode-pill-btn ${mode === "autonomous" ? "active" : ""}`}
+            onClick={() => setMode("autonomous")}
+          >
+            <Sparkles size={13} />
+            <span>Autonomous Buyer Agent</span>
+            <span style={{ fontSize: "9px", background: "var(--purple-tint)", color: "var(--purple-deep)", padding: "1px 6px", borderRadius: "999px" }}>
+              Track 01 Core
+            </span>
+          </button>
+          <button
+            type="button"
+            className={`mode-pill-btn ${mode === "interactive" ? "active" : ""}`}
+            onClick={() => setMode("interactive")}
+          >
+            <ShoppingBag size={13} />
+            <span>Interactive Simulator</span>
+          </button>
+        </div>
+        <div style={{ fontSize: "11px", color: "var(--ink-muted)", fontFamily: "var(--font-mono)" }}>
+          MERCHANT: <strong>{merchantId}</strong>
+        </div>
+      </div>
+
       {!mandate ? (
         <div className="empty-box" style={{ marginTop: "80px" }}>
           <ShoppingBag size={32} />
           <strong>No Active Authority</strong>
           <p>You must issue an active mandate before an agent can propose purchases.</p>
         </div>
+      ) : mode === "autonomous" ? (
+        /* ================= AUTONOMOUS BUYER AGENT MODE ================= */
+        <div className="autonomous-layout">
+          {/* Left Column: Mission Briefing & Dispatch */}
+          <div className="agent-briefing-card">
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+              <span className="panel-title">AGENT MISSION BRIEF</span>
+              <StateBadge value={mandate.status} />
+            </div>
+
+            <div className="briefing-field">
+              <label>Cryptographic Mandate ID</label>
+              <div className="val-box" style={{ fontFamily: "var(--font-mono)", fontSize: "11px" }}>
+                {mandate.id}
+              </div>
+            </div>
+
+            <div className="briefing-field">
+              <label>Human Intent Instruction</label>
+              <div className="val-box">"{mandate.instruction_text}"</div>
+            </div>
+
+            <div className="briefing-field">
+              <label>Deterministic Hard Limits</label>
+              <div className="val-box" style={{ fontFamily: "var(--font-mono)", fontSize: "11px" }}>
+                Max Budget: {money(Number(mandate.hard_constraints?.max_amount_paise ?? 0))}
+                <br />
+                Currency: {(mandate.hard_constraints?.allowed_currencies as string[])?.join(", ") ?? "INR"}
+                <br />
+                Executions: {mandate.max_executions - mandate.execution_count} / {mandate.max_executions} available
+              </div>
+            </div>
+
+            <div className="briefing-field">
+              <label>Authoritative Merchant Authority</label>
+              <div className="val-box" style={{ fontFamily: "var(--font-mono)", fontSize: "11px" }}>
+                {merchantId} ({products.length} machine-readable SKUs)
+              </div>
+            </div>
+
+            <button
+              className="btn-primary"
+              style={{ width: "100%", justifyContent: "center", padding: "12px", background: "linear-gradient(135deg, #6a3df0, #5227d8)" }}
+              onClick={() => dispatchAutonomousShop(true)}
+              disabled={!!busy || mandate.status !== "ACTIVE"}
+            >
+              <Sparkles size={16} />
+              <span>{busy === "autonomous-shop" ? "AUTONOMOUS REASONING & SHOPPING…" : "DISPATCH AUTONOMOUS BUYER AGENT"}</span>
+            </button>
+
+            {/* If Razorpay Test Order Created */}
+            {order && !payment && (
+              <button className="btn-razorpay" onClick={checkout} disabled={!!busy || !order.key_id}>
+                <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
+                  <CreditCard size={18} color="#bf8efd" />
+                  <div style={{ textAlign: "left" }}>
+                    <div style={{ fontSize: "12.5px", fontWeight: 700 }}>PAY WITH RAZORPAY TEST CHECKOUT</div>
+                    <div style={{ fontSize: "10px", color: "rgba(255,255,255,0.7)" }}>
+                      Order: {order.razorpay_order_id} · {money(order.amount ?? 0)}
+                    </div>
+                  </div>
+                </div>
+                <span>{busy === "checkout" ? "OPENING…" : busy === "verify" ? "VERIFYING…" : "OPEN POPUP"}</span>
+              </button>
+            )}
+
+            {/* If Payment Captured */}
+            {payment && (
+              <div className="payment-verified-banner">
+                <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+                  <Check size={18} color="#10b981" />
+                  <div>
+                    <strong style={{ fontSize: "12px", display: "block" }}>RAZORPAY PAYMENT CAPTURED</strong>
+                    <span style={{ fontSize: "10px", fontFamily: "var(--font-mono)" }}>ID: {payment.razorpay_payment_id}</span>
+                  </div>
+                </div>
+                <StateBadge value="PAID" />
+              </div>
+            )}
+
+            {/* If Step-Up Escalated */}
+            {buyerResult?.decision === "STEP_UP" && (
+              <button
+                className="btn-primary"
+                style={{ width: "100%", justifyContent: "space-between", background: "#f97316" }}
+                onClick={goStepUp}
+              >
+                <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
+                  <UserCheck size={14} />
+                  <span>STEP-UP ESCALATED — REVIEW</span>
+                </div>
+                <ArrowRight size={14} />
+              </button>
+            )}
+          </div>
+
+          {/* Right Column: Execution Trace & Candidate Matrix */}
+          <div className="agent-results-column">
+            {buyerResult ? (
+              <>
+                {/* Verdict Summary */}
+                <div className="decision-hero-card" style={{ marginBottom: "0" }}>
+                  <div className="decision-header-row">
+                    <div className="decision-title-group">
+                      <span style={{ fontSize: "10px", fontFamily: "var(--font-mono)", color: "var(--ink-muted)" }}>
+                        AUTONOMOUS CYCLE VERDICT
+                      </span>
+                      <span className={`decision-badge-big ${buyerResult.decision}`}>{buyerResult.decision}</span>
+                      <span style={{ fontSize: "12px", color: "var(--ink-secondary)" }}>
+                        {buyerResult.selected_product_name
+                          ? `Selected: ${buyerResult.selected_product_name} (${money(buyerResult.amount_paise ?? 0)})`
+                          : (buyerResult.reason_code ? pretty(buyerResult.reason_code) : "Cycle complete")}
+                      </span>
+                    </div>
+                    <StateBadge value={buyerResult.status} />
+                  </div>
+                  <p style={{ fontSize: "12px", color: "var(--ink)", lineHeight: 1.5, background: "var(--bg-subtle)", padding: "10px", borderRadius: "8px" }}>
+                    <strong>Agent Reasoning:</strong> {buyerResult.agent_reasoning}
+                  </p>
+                </div>
+
+                {/* 6-Stage Autonomous Reasoning Timeline */}
+                <div className="agent-step-timeline">
+                  <span className="panel-title" style={{ fontSize: "11px" }}>
+                    MULTI-STAGE AUTONOMOUS REASONING TRACE ({buyerResult.steps.length} STEPS)
+                  </span>
+                  {buyerResult.steps.map((s) => (
+                    <div className="agent-step-item" key={s.step_num}>
+                      <div className="agent-step-num">{s.step_num}</div>
+                      <div className="agent-step-content">
+                        <div className="agent-step-title">
+                          <span>{s.title}</span>
+                          <StateBadge value={s.status} />
+                        </div>
+                        <p className="agent-step-detail">{s.detail}</p>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+
+                {/* Candidate SKU Elimination & Ranking Matrix */}
+                <div className="matrix-card">
+                  <span className="panel-title" style={{ fontSize: "11px" }}>
+                    CANDIDATE SKU ELIMINATION & RANKING MATRIX ({buyerResult.candidates_evaluated.length} SKUs)
+                  </span>
+                  <table className="matrix-table">
+                    <thead>
+                      <tr>
+                        <th>Product SKU</th>
+                        <th>Catalog Price</th>
+                        <th>Hard Gate</th>
+                        <th>Semantic Fit</th>
+                        <th>Score</th>
+                        <th>Evaluation Details</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {buyerResult.candidates_evaluated.map((c) => {
+                        const isSelected = c.product_id === buyerResult.selected_product_id;
+                        return (
+                          <tr
+                            key={c.product_id}
+                            className={isSelected ? "selected-row" : !c.hard_eligible ? "eliminated-row" : ""}
+                          >
+                            <td>
+                              <strong>{c.name}</strong>
+                              <span style={{ display: "block", fontSize: "10px", color: "var(--ink-muted)", fontFamily: "var(--font-mono)" }}>
+                                {c.product_id}
+                              </span>
+                            </td>
+                            <td style={{ fontFamily: "var(--font-mono)", fontWeight: 700 }}>
+                              {money(c.price_paise)}
+                            </td>
+                            <td>
+                              {c.hard_eligible ? (
+                                <span style={{ color: "#059669", fontWeight: 700, display: "flex", alignItems: "center", gap: "4px" }}>
+                                  <Check size={13} /> PASS
+                                </span>
+                              ) : (
+                                <span style={{ color: "#dc2626", fontWeight: 700, display: "flex", alignItems: "center", gap: "4px" }}>
+                                  <X size={13} /> FAIL
+                                </span>
+                              )}
+                            </td>
+                            <td>
+                              {c.semantic_notes ? (
+                                <StateBadge value={c.semantic_notes.includes("Contradicted") ? "CONTRADICTED" : "SUPPORTED"} />
+                              ) : (
+                                <span style={{ color: "var(--ink-muted)", fontSize: "10.5px" }}>N/A</span>
+                              )}
+                            </td>
+                            <td style={{ fontFamily: "var(--font-mono)", fontWeight: 700 }}>
+                              {c.semantic_score > 0 ? c.semantic_score.toFixed(2) : "0.00"}
+                            </td>
+                            <td style={{ fontSize: "11px", color: isSelected ? "#065f46" : "var(--ink-secondary)" }}>
+                              {isSelected ? (
+                                <strong>Optimal Choice: Highest semantic match under budget</strong>
+                              ) : (
+                                c.rejection_reason || c.semantic_notes || "Sub-optimal match"
+                              )}
+                            </td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+              </>
+            ) : (
+              <div className="deck-panel" style={{ alignItems: "center", justifyContent: "center", minHeight: "340px" }}>
+                <Sparkles size={32} color="var(--purple-brand)" />
+                <strong style={{ fontSize: "14px", marginTop: "12px", color: "var(--ink)" }}>
+                  Autonomous Buyer Agent Ready
+                </strong>
+                <p style={{ fontSize: "12px", color: "var(--ink-muted)", maxWidth: "420px", textAlign: "center", marginTop: "4px" }}>
+                  Click "Dispatch Autonomous Buyer Agent" to watch the AI independently parse the mandate, filter SKUs by hard limits, score candidates against fuzzy human intent, generate a signed proposal, and settle via Razorpay test mode.
+                </p>
+              </div>
+            )}
+          </div>
+        </div>
       ) : (
+        /* ================= INTERACTIVE SIMULATOR MODE ================= */
         <div className="simulator-layout">
           {/* Left Column: Product Selection */}
           <div className="simulator-catalog-column">

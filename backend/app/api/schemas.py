@@ -94,3 +94,62 @@ class StepUpRead(BaseModel):
     binding_hash: str
     created_at: datetime
     resolved_at: datetime | None
+
+
+class CandidateEvaluation(BaseModel):
+    product_id: str
+    name: str
+    price_paise: int
+    hard_eligible: bool
+    rejection_reason: str | None = None
+    semantic_score: float = 0.0
+    semantic_notes: str | None = None
+
+
+class AgentStep(BaseModel):
+    step_num: int
+    title: str
+    detail: str
+    status: str = "COMPLETED"
+
+
+class AutonomousShopRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    mandate_id: str = Field(pattern=r"^mnd_[a-f0-9]+$")
+    merchant_id: str = Field(default="northstar_audio", min_length=3, max_length=80)
+    auto_execute: bool = True
+
+
+class AutonomousShopResponse(BaseModel):
+    mandate_id: str
+    merchant_id: str
+    steps: list[AgentStep]
+    candidates_evaluated: list[CandidateEvaluation]
+    selected_product_id: str | None
+    selected_product_name: str | None
+    agent_reasoning: str
+    proposal_id: str | None
+    decision: str
+    reason_code: str | None
+    razorpay_order_id: str | None
+    status: str
+    key_id: str | None = None
+    amount_paise: int | None = None
+    currency: str = "INR"
+    step_up_id: str | None = None
+
+
+class MerchantMetricsResponse(BaseModel):
+    merchant_id: str
+    catalog_sku_count: int
+    machine_readability_score: float
+    total_proposals: int
+    allowed_count: int
+    stepup_count: int
+    blocked_count: int
+    conversion_rate_pct: float
+    autonomous_gmv_paise: int
+    blocked_overspend_paise: int
+    p95_authorization_latency_ms: float
+

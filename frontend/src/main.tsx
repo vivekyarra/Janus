@@ -53,7 +53,7 @@ ReactDOM.createRoot(document.getElementById("root")!).render(
         <AuthenticatedJanus />
       </ClerkProvider>
     ) : (
-      <App />
+      <App getAccessToken={async () => "demo_operator"} />
     )}
   </React.StrictMode>,
 );

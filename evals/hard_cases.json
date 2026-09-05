@@ -1,14 +1,375 @@
 [
-  {"name":"exact maximum","product":{},"mandate":{},"quantity":1,"expected":"PASS"},
-  {"name":"one paise over","product":{"price_paise":2000001},"mandate":{},"quantity":1,"expected":"AMOUNT_LIMIT_EXCEEDED"},
-  {"name":"wrong merchant","product":{"merchant_id":"merchant_other"},"mandate":{},"quantity":1,"expected":"MERCHANT_NOT_ALLOWED"},
-  {"name":"wrong currency","product":{"currency":"USD"},"mandate":{},"quantity":1,"expected":"CURRENCY_NOT_ALLOWED"},
-  {"name":"wrong category","product":{"category":"speakers"},"mandate":{},"quantity":1,"expected":"CATEGORY_NOT_ALLOWED"},
-  {"name":"refurbished","product":{"condition":"refurbished"},"mandate":{},"quantity":1,"expected":"CONDITION_NOT_ALLOWED"},
-  {"name":"quantity overflow","product":{"price_paise":900000},"mandate":{},"quantity":2,"expected":"QUANTITY_EXCEEDED"},
-  {"name":"revoked","product":{},"mandate":{"status":"REVOKED"},"quantity":1,"expected":"MANDATE_REVOKED"},
-  {"name":"consumed","product":{},"mandate":{"status":"CONSUMED"},"quantity":1,"expected":"MANDATE_CONSUMED"},
-  {"name":"execution exhausted","product":{},"mandate":{"execution_count":1},"quantity":1,"expected":"EXECUTION_LIMIT_EXCEEDED"},
-  {"name":"stale version","product":{},"mandate":{"version":2},"quantity":1,"expected":"MANDATE_VERSION_STALE"},
-  {"name":"duplicate request","product":{},"mandate":{},"quantity":1,"idempotency_unused":false,"expected":"DUPLICATE_REQUEST"}
+  {
+    "name": "exact maximum amount",
+    "product": {
+      "price_paise": 2000000
+    },
+    "mandate": {},
+    "quantity": 1,
+    "expected": "PASS"
+  },
+  {
+    "name": "under budget single unit",
+    "product": {
+      "price_paise": 1849900
+    },
+    "mandate": {},
+    "quantity": 1,
+    "expected": "PASS"
+  },
+  {
+    "name": "low price item within budget",
+    "product": {
+      "price_paise": 699900
+    },
+    "mandate": {},
+    "quantity": 1,
+    "expected": "PASS"
+  },
+  {
+    "name": "minimum valid price",
+    "product": {
+      "price_paise": 100
+    },
+    "mandate": {},
+    "quantity": 1,
+    "expected": "PASS"
+  },
+  {
+    "name": "one paise over maximum limit",
+    "product": {
+      "price_paise": 2000001
+    },
+    "mandate": {},
+    "quantity": 1,
+    "expected": "AMOUNT_LIMIT_EXCEEDED"
+  },
+  {
+    "name": "moderate budget breach",
+    "product": {
+      "price_paise": 2149900
+    },
+    "mandate": {},
+    "quantity": 1,
+    "expected": "AMOUNT_LIMIT_EXCEEDED"
+  },
+  {
+    "name": "severe 2x budget breach",
+    "product": {
+      "price_paise": 4000000
+    },
+    "mandate": {},
+    "quantity": 1,
+    "expected": "AMOUNT_LIMIT_EXCEEDED"
+  },
+  {
+    "name": "10x budget overflow attempt",
+    "product": {
+      "price_paise": 20000000
+    },
+    "mandate": {},
+    "quantity": 1,
+    "expected": "AMOUNT_LIMIT_EXCEEDED"
+  },
+  {
+    "name": "unauthorized merchant store",
+    "product": {
+      "merchant_id": "merchant_unauthorized"
+    },
+    "mandate": {},
+    "quantity": 1,
+    "expected": "MERCHANT_NOT_ALLOWED"
+  },
+  {
+    "name": "different merchant namespace",
+    "product": {
+      "merchant_id": "rogue_seller"
+    },
+    "mandate": {},
+    "quantity": 1,
+    "expected": "MERCHANT_NOT_ALLOWED"
+  },
+  {
+    "name": "empty merchant id",
+    "product": {
+      "merchant_id": ""
+    },
+    "mandate": {},
+    "quantity": 1,
+    "expected": "MERCHANT_NOT_ALLOWED"
+  },
+  {
+    "name": "merchant prefix spoof attempt",
+    "product": {
+      "merchant_id": "merchant_demo_fraud"
+    },
+    "mandate": {},
+    "quantity": 1,
+    "expected": "MERCHANT_NOT_ALLOWED"
+  },
+  {
+    "name": "usd currency mismatch",
+    "product": {
+      "currency": "USD"
+    },
+    "mandate": {},
+    "quantity": 1,
+    "expected": "CURRENCY_NOT_ALLOWED"
+  },
+  {
+    "name": "eur currency mismatch",
+    "product": {
+      "currency": "EUR"
+    },
+    "mandate": {},
+    "quantity": 1,
+    "expected": "CURRENCY_NOT_ALLOWED"
+  },
+  {
+    "name": "gbp currency mismatch",
+    "product": {
+      "currency": "GBP"
+    },
+    "mandate": {},
+    "quantity": 1,
+    "expected": "CURRENCY_NOT_ALLOWED"
+  },
+  {
+    "name": "crypto currency token symbol",
+    "product": {
+      "currency": "USDT"
+    },
+    "mandate": {},
+    "quantity": 1,
+    "expected": "CURRENCY_NOT_ALLOWED"
+  },
+  {
+    "name": "category mismatch speakers",
+    "product": {
+      "category": "speakers"
+    },
+    "mandate": {},
+    "quantity": 1,
+    "expected": "CATEGORY_NOT_ALLOWED"
+  },
+  {
+    "name": "category mismatch smartphones",
+    "product": {
+      "category": "smartphones"
+    },
+    "mandate": {},
+    "quantity": 1,
+    "expected": "CATEGORY_NOT_ALLOWED"
+  },
+  {
+    "name": "category mismatch accessories",
+    "product": {
+      "category": "cables"
+    },
+    "mandate": {},
+    "quantity": 1,
+    "expected": "CATEGORY_NOT_ALLOWED"
+  },
+  {
+    "name": "category mismatch laptops",
+    "product": {
+      "category": "laptops"
+    },
+    "mandate": {},
+    "quantity": 1,
+    "expected": "CATEGORY_NOT_ALLOWED"
+  },
+  {
+    "name": "disallowed refurbished condition",
+    "product": {
+      "condition": "refurbished"
+    },
+    "mandate": {},
+    "quantity": 1,
+    "expected": "CONDITION_NOT_ALLOWED"
+  },
+  {
+    "name": "disallowed used condition",
+    "product": {
+      "condition": "used"
+    },
+    "mandate": {},
+    "quantity": 1,
+    "expected": "CONDITION_NOT_ALLOWED"
+  },
+  {
+    "name": "disallowed open-box condition",
+    "product": {
+      "condition": "open_box"
+    },
+    "mandate": {},
+    "quantity": 1,
+    "expected": "CONDITION_NOT_ALLOWED"
+  },
+  {
+    "name": "quantity exceeds max quantity",
+    "product": {
+      "price_paise": 900000
+    },
+    "mandate": {},
+    "quantity": 2,
+    "expected": "QUANTITY_EXCEEDED"
+  },
+  {
+    "name": "bulk quantity 5 units attempt",
+    "product": {
+      "price_paise": 200000
+    },
+    "mandate": {},
+    "quantity": 5,
+    "expected": "QUANTITY_EXCEEDED"
+  },
+  {
+    "name": "unit within limit but total overflow",
+    "product": {
+      "price_paise": 1500000
+    },
+    "mandate": {
+      "hard_constraints": {
+        "max_amount_paise": 2000000,
+        "allowed_currencies": [
+          "INR"
+        ],
+        "allowed_merchants": [
+          "merchant_demo"
+        ],
+        "allowed_categories": [
+          "headphones"
+        ],
+        "allowed_conditions": [
+          "new"
+        ],
+        "max_quantity": 3,
+        "max_executions": 1
+      }
+    },
+    "quantity": 2,
+    "expected": "AMOUNT_LIMIT_EXCEEDED"
+  },
+  {
+    "name": "zero quantity request",
+    "product": {
+      "price_paise": 1000000
+    },
+    "mandate": {},
+    "quantity": 0,
+    "expected": "QUANTITY_EXCEEDED"
+  },
+  {
+    "name": "revoked mandate state",
+    "product": {},
+    "mandate": {
+      "status": "REVOKED"
+    },
+    "quantity": 1,
+    "expected": "MANDATE_REVOKED"
+  },
+  {
+    "name": "consumed single-use mandate",
+    "product": {},
+    "mandate": {
+      "status": "CONSUMED"
+    },
+    "quantity": 1,
+    "expected": "MANDATE_CONSUMED"
+  },
+  {
+    "name": "execution count exhausted 1 of 1",
+    "product": {},
+    "mandate": {
+      "execution_count": 1,
+      "max_executions": 1
+    },
+    "quantity": 1,
+    "expected": "EXECUTION_LIMIT_EXCEEDED"
+  },
+  {
+    "name": "execution count exhausted 3 of 3",
+    "product": {},
+    "mandate": {
+      "execution_count": 3,
+      "max_executions": 3
+    },
+    "quantity": 1,
+    "expected": "EXECUTION_LIMIT_EXCEEDED"
+  },
+  {
+    "name": "stale mandate version 2 vs 1",
+    "product": {},
+    "mandate": {
+      "version": 2,
+      "signed_version": 1
+    },
+    "quantity": 1,
+    "expected": "MANDATE_VERSION_STALE"
+  },
+  {
+    "name": "duplicate request replay",
+    "product": {},
+    "mandate": {},
+    "quantity": 1,
+    "idempotency_unused": false,
+    "expected": "DUPLICATE_REQUEST"
+  },
+  {
+    "name": "multi-currency mandate matching inr",
+    "product": {
+      "currency": "INR"
+    },
+    "mandate": {
+      "hard_constraints": {
+        "max_amount_paise": 2000000,
+        "allowed_currencies": [
+          "INR",
+          "USD"
+        ],
+        "allowed_merchants": [
+          "merchant_demo"
+        ],
+        "allowed_categories": [
+          "headphones"
+        ],
+        "allowed_conditions": [
+          "new"
+        ],
+        "max_quantity": 1,
+        "max_executions": 1
+      }
+    },
+    "quantity": 1,
+    "expected": "PASS"
+  },
+  {
+    "name": "multi-category mandate matching audio",
+    "product": {
+      "category": "earbuds"
+    },
+    "mandate": {
+      "hard_constraints": {
+        "max_amount_paise": 2000000,
+        "allowed_currencies": [
+          "INR"
+        ],
+        "allowed_merchants": [
+          "merchant_demo"
+        ],
+        "allowed_categories": [
+          "headphones",
+          "earbuds"
+        ],
+        "allowed_conditions": [
+          "new"
+        ],
+        "max_quantity": 1,
+        "max_executions": 1
+      }
+    },
+    "quantity": 1,
+    "expected": "PASS"
+  }
 ]
