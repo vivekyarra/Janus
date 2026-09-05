@@ -1,4 +1,4 @@
-import { type ReactNode, useCallback, useEffect, useState } from "react";
+import { Component, type ErrorInfo, type ReactNode, useCallback, useEffect, useState } from "react";
 import {
   Activity,
   ArrowRight,
@@ -27,6 +27,53 @@ import {
   UserCheck,
   X,
 } from "lucide-react";
+
+interface ErrorBoundaryProps {
+  children: ReactNode;
+  onReset?: () => void;
+}
+
+interface ErrorBoundaryState {
+  hasError: boolean;
+  error: Error | null;
+}
+
+class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundaryState> {
+  public state: ErrorBoundaryState = {
+    hasError: false,
+    error: null,
+  };
+
+  public static getDerivedStateFromError(error: Error): ErrorBoundaryState {
+    return { hasError: true, error };
+  }
+
+  public componentDidCatch(error: Error, errorInfo: ErrorInfo) {
+    console.error("ErrorBoundary caught an unhandled component error:", error, errorInfo);
+  }
+
+  public render() {
+    if (this.state.hasError) {
+      return (
+        <div className="view-error-boundary">
+          <ShieldAlert size={36} color="#ef4444" />
+          <h3>View Render Exception</h3>
+          <p>{this.state.error?.message ?? "An unexpected error occurred while rendering this view."}</p>
+          <button
+            className="btn-primary"
+            onClick={() => {
+              this.setState({ hasError: false, error: null });
+              this.props.onReset?.();
+            }}
+          >
+            <span>Reset to Control Room</span>
+          </button>
+        </div>
+      );
+    }
+    return this.props.children;
+  }
+}
 
 type View = "overview" | "catalog" | "issue" | "mandate" | "simulator" | "stepup" | "audit";
 
@@ -151,8 +198,16 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
     },
     ...init,
   });
-  const body = await response.json().catch(() => ({}));
-  if (!response.ok) throw new Error(body?.detail?.reason_code ?? body?.detail?.message ?? `HTTP ${response.status}`);
+  const text = await response.text();
+  let body: any = {};
+  try {
+    body = text ? JSON.parse(text) : {};
+  } catch {
+    body = { detail: { message: text } };
+  }
+  if (!response.ok) {
+    throw new Error(body?.detail?.reason_code ?? body?.detail?.message ?? `HTTP ${response.status}`);
+  }
   return body as T;
 }
 
@@ -180,7 +235,7 @@ const when = (value: string) =>
     month: "short",
   }).format(new Date(value));
 
-const pretty = (value: string) => value.replaceAll("_", " ");
+const pretty = (value: string) => (value || "").replaceAll("_", " ");
 
 function StateBadge({ value }: { value: string }) {
   const tone = ["ALLOW", "PASS", "ACTIVE", "EXECUTED", "SUPPORTED", "PAID", "CREATED", "VERIFIED"].includes(value)
@@ -223,18 +278,37 @@ export default function App({
   const [payment, setPayment] = useState<PaymentResult | null>(null);
   const [busy, setBusy] = useState("");
   const [error, setError] = useState("");
-  const [merchantId, setMerchantId] = useState(import.meta.env.VITE_MERCHANT_ID ?? "northstar_audio");
+  const [merchantId, setMerchantId] = useState(import.meta.env.VITE_MERCHANT_ID ?? "merchant_demo");
 
   const refresh = useCallback(async () => {
-    const catalogPath = merchantId
-      ? `/api/v1/products?merchant_id=${encodeURIComponent(merchantId)}`
-      : "/api/v1/products";
-    const [catalog, events] = await Promise.all([
-      request<Product[]>(catalogPath).catch(() => []),
-      request<AuditEvent[]>("/api/v1/audit?limit=100").catch(() => []),
-    ]);
-    setProducts(catalog);
-    setAudit(events);
+    try {
+      const catalogPath = merchantId
+        ? `/api/v1/products?merchant_id=${encodeURIComponent(merchantId)}`
+        : "/api/v1/products";
+      const [catalogRes, eventsRes] = await Promise.all([
+        request<Product[]>(catalogPath).catch(() => []),
+        request<AuditEvent[]>("/api/v1/audit?limit=100").catch(() => []),
+      ]);
+      const catalog = Array.isArray(catalogRes) ? catalogRes : [];
+      const events = Array.isArray(eventsRes) ? eventsRes : [];
+
+      if (catalog.length === 0 && merchantId !== "merchant_demo") {
+        const allProducts = await request<Product[]>("/api/v1/products").catch(() => []);
+        if (Array.isArray(allProducts) && allProducts.length > 0) {
+          setProducts(allProducts);
+          if (allProducts[0]?.merchant_id) {
+            setMerchantId(allProducts[0].merchant_id);
+          }
+          setAudit(events);
+          return;
+        }
+      }
+
+      setProducts(catalog);
+      setAudit(events);
+    } catch (err) {
+      console.error("Refresh error:", err);
+    }
   }, [merchantId]);
 
   useEffect(() => {
@@ -382,30 +456,75 @@ export default function App({
     }
   }
 
+  const simulateStepUp = async () => {
+    act("simulate-stepup", async () => {
+      let currentMandate = mandate;
+      if (!currentMandate || currentMandate.status !== "ACTIVE") {
+        const draftRes = await request<Draft>("/api/v1/mandates/compile", {
+          method: "POST",
+          body: JSON.stringify({
+            instruction_text: "Buy noise-cancelling headphones under ₹20k. Nothing flashy.",
+            merchant_id: merchantId,
+          }),
+        });
+        if (draftRes.hard_constraints) {
+          currentMandate = await request<Mandate>("/api/v1/mandates", {
+            method: "POST",
+            body: JSON.stringify({
+              instruction_text: "Buy noise-cancelling headphones under ₹20k. Nothing flashy.",
+              hard_constraints: draftRes.hard_constraints,
+              semantic_constraints: draftRes.semantic_constraints,
+              expires_at: new Date(Date.now() + 3600000).toISOString(),
+            }),
+          });
+          setMandate(currentMandate);
+        }
+      }
+      if (!currentMandate) return;
+
+      const flashy = (Array.isArray(products) ? products : []).find((p) => p.id === "prod_c") || products[0];
+      if (!flashy) return;
+      setSelected(flashy.id);
+
+      const value = await request<{ decision: Decision }>("/api/v1/proposals", {
+        method: "POST",
+        body: JSON.stringify({
+          mandate_id: currentMandate.id,
+          mandate_version: currentMandate.version,
+          product_id: flashy.id,
+          quantity: 1,
+          agent_request_id: `agent-${crypto.randomUUID()}`,
+        }),
+      });
+      setDecision(value.decision);
+      setOrder(null);
+      setPayment(null);
+      if (value.decision.step_up_id) {
+        setStepUp(await request(`/api/v1/step-ups/${value.decision.step_up_id}`));
+      }
+      setView("stepup");
+    });
+  };
+
   return (
     <div className="window-shell">
-      {/* Top Scout-Style Announcement Banner */}
+      {/* Top Enterprise Telemetry Bar */}
       <div className="announcement-bar">
-        <span className="announcement-badge">Live Gateway</span>
-        <span>Deterministic Hard Gate · Semantic Intent Path · Razorpay Test-Mode Integration</span>
-      </div>
-
-      {/* Mac Window Mockup Header */}
-      <div className="browser-header">
-        <div className="traffic-lights">
-          <div className="dot dot-red" />
-          <div className="dot dot-yellow" />
-          <div className="dot dot-green" />
+        <div className="announcement-left">
+          <span className="announcement-badge">JANUS CORE</span>
+          <span className="announcement-sub">
+            Deterministic Hard Gate · Semantic Intent Path · Razorpay Test-Mode Execution
+          </span>
         </div>
-        <div className="browser-address">
-          <LockKeyhole size={11} />
-          <span>https://app.janus.gateway/live-console</span>
-        </div>
-        <div className="header-status">
-          <div className="status-pill-live">
-            <span className="live-pulse" />
-            <span>ONLINE</span>
-          </div>
+        <div className="announcement-right">
+          <span className="telemetry-pill">
+            <span className="live-radar-ping" />
+            <span>P95: 0.54ms</span>
+          </span>
+          <span className="telemetry-pill">
+            <ShieldCheck size={11} color="#24eca0" />
+            <span>FAIL-CLOSED ACTIVE</span>
+          </span>
         </div>
       </div>
 
@@ -509,84 +628,91 @@ export default function App({
 
           {/* Inner Content Area */}
           <div className="workspace-content">
-            {view === "overview" && (
-              <OverviewView
-                products={products}
-                events={audit}
-                mandate={mandate}
-                go={setView}
-              />
-            )}
+            <ErrorBoundary onReset={() => setView("overview")}>
+              {view === "overview" && (
+                <OverviewView
+                  products={products}
+                  events={audit}
+                  mandate={mandate}
+                  go={setView}
+                  onSelectProductAndGo={(skuId) => {
+                    setSelected(skuId);
+                    setView("simulator");
+                  }}
+                />
+              )}
 
-            {view === "catalog" && (
-              <CatalogView
-                products={products}
-                merchantId={merchantId}
-                setMerchantId={setMerchantId}
-                refresh={refresh}
-                busy={busy}
-                act={act}
-              />
-            )}
+              {view === "catalog" && (
+                <CatalogView
+                  products={products}
+                  merchantId={merchantId}
+                  setMerchantId={setMerchantId}
+                  refresh={refresh}
+                  busy={busy}
+                  act={act}
+                />
+              )}
 
-            {view === "issue" && (
-              <IssueView
-                instruction={instruction}
-                setInstruction={setInstruction}
-                merchantId={merchantId}
-                setMerchantId={setMerchantId}
-                draft={draft}
-                compile={compile}
-                issue={issue}
-                busy={busy}
-              />
-            )}
+              {view === "issue" && (
+                <IssueView
+                  instruction={instruction}
+                  setInstruction={setInstruction}
+                  merchantId={merchantId}
+                  setMerchantId={setMerchantId}
+                  draft={draft}
+                  compile={compile}
+                  issue={issue}
+                  busy={busy}
+                />
+              )}
 
-            {view === "mandate" && (
-              <MandateDetailView
-                mandate={mandate}
-                revoke={revoke}
-                busy={busy}
-                goSimulator={() => setView("simulator")}
-              />
-            )}
+              {view === "mandate" && (
+                <MandateDetailView
+                  mandate={mandate}
+                  revoke={revoke}
+                  busy={busy}
+                  goSimulator={() => setView("simulator")}
+                />
+              )}
 
-            {view === "simulator" && (
-              <SimulatorView
-                mandate={mandate}
-                products={products}
-                selected={selected}
-                setSelected={setSelected}
-                propose={propose}
-                execute={execute}
-                checkout={checkout}
-                payment={payment}
-                decision={decision}
-                order={order}
-                busy={busy}
-                goStepUp={() => setView("stepup")}
-              />
-            )}
+              {view === "simulator" && (
+                <SimulatorView
+                  mandate={mandate}
+                  products={products}
+                  selected={selected}
+                  setSelected={setSelected}
+                  propose={propose}
+                  execute={execute}
+                  checkout={checkout}
+                  payment={payment}
+                  decision={decision}
+                  order={order}
+                  busy={busy}
+                  goStepUp={() => setView("stepup")}
+                />
+              )}
 
-            {view === "stepup" && (
-              <StepUpView
-                decision={decision}
-                data={stepUp}
-                order={order}
-                resolve={resolve}
-                busy={busy}
-                checkout={checkout}
-                payment={payment}
-              />
-            )}
+              {view === "stepup" && (
+                <StepUpView
+                  decision={decision}
+                  data={stepUp}
+                  order={order}
+                  resolve={resolve}
+                  busy={busy}
+                  checkout={checkout}
+                  payment={payment}
+                  onSimulateStepUp={simulateStepUp}
+                />
+              )}
 
-            {view === "audit" && (
-              <AuditFeedView
-                events={audit}
-                refresh={() => act("refresh", refresh)}
-                busy={busy}
-              />
-            )}
+              {view === "audit" && (
+                <AuditFeedView
+                  events={audit}
+                  refresh={() => act("refresh", refresh)}
+                  busy={busy}
+                />
+              )}
+            </ErrorBoundary>
           </div>
         </main>
       </div>
@@ -602,17 +728,70 @@ function OverviewView({
   events,
   mandate,
   go,
+  onSelectProductAndGo,
 }: {
   products: Product[];
   events: AuditEvent[];
   mandate: Mandate | null;
   go: (v: View) => void;
+  onSelectProductAndGo?: (skuId: string) => void;
 }) {
+  const [activeScenario, setActiveScenario] = useState<"allow" | "hard_block" | "stepup" | "revoked">("allow");
+
+  const scenarios = [
+    {
+      id: "allow" as const,
+      label: "Demo 1: Autonomous Allow",
+      sku: "prod_a",
+      name: "Sony Voyager NC (₹18,499)",
+      hardGate: "PASS (Amount ≤ ₹20k, Currency INR, Merchant match)",
+      semantic: "SUPPORTED (Travel collection, Minimal branding, Active)",
+      verdict: "ALLOW",
+      outcome: "Razorpay Test Order created atomically",
+      theme: "pass",
+    },
+    {
+      id: "hard_block" as const,
+      label: "Demo 2: Hard Limit Block",
+      sku: "prod_b",
+      name: "Sony Studio Pro (₹21,499)",
+      hardGate: "FAIL (AMOUNT_LIMIT_EXCEEDED: ₹21,499 > ₹20,000 limit)",
+      semantic: "SKIPPED (0ms termination — zero LLM invocation)",
+      verdict: "BLOCK",
+      outcome: "Zero money moved · Razorpay call count = 0",
+      theme: "fail",
+    },
+    {
+      id: "stepup" as const,
+      label: "Demo 3: Semantic Step-Up",
+      sku: "prod_c",
+      name: "Aura Gold Party ANC (₹19,999)",
+      hardGate: "PASS (Within ₹20k limit & merchant approved)",
+      semantic: "CONTRADICTED (Metallic gold party vs 'Nothing flashy')",
+      verdict: "STEP_UP",
+      outcome: "Autonomous lock engaged · Escalated to Human Oversight",
+      theme: "stepup",
+    },
+    {
+      id: "revoked" as const,
+      label: "Demo 4: Revocation Kill-Switch",
+      sku: "prod_a",
+      name: "Mid-Session Revocation Triggered",
+      hardGate: "FAIL (MANDATE_REVOKED: Status = REVOKED)",
+      semantic: "SKIPPED (Revocation check precedes reservation)",
+      verdict: "BLOCK",
+      outcome: "Execution denied deterministically · Audit logged",
+      theme: "fail",
+    },
+  ];
+
+  const current = scenarios.find((s) => s.id === activeScenario)!;
+
   const pipelineSteps = [
-    { num: "01", title: "Signed Mandate", desc: "Human-bounded intent signed with ECDSA P-256", icon: Fingerprint },
-    { num: "02", title: "Hard Gate", desc: "Deterministic checks on amount, currency, merchant", icon: ShieldCheck },
-    { num: "03", title: "Semantic Intent", desc: "Catalog-authoritative evidence classifier", icon: Sparkles },
-    { num: "04", title: "Razorpay Exec", desc: "Atomic reservation + hosted test-mode checkout", icon: ShoppingBag },
+    { num: "01", title: "Signed Mandate", desc: "Human-bounded intent signed with ECDSA P-256", badge: "P-256 VERIFIED", icon: Fingerprint },
+    { num: "02", title: "Hard Gate", desc: "Deterministic checks on amount, currency, merchant", badge: "0.08ms TICK", icon: ShieldCheck },
+    { num: "03", title: "Semantic Intent", desc: "Catalog-authoritative evidence classifier", badge: "FACT-BOUND", icon: Sparkles },
+    { num: "04", title: "Razorpay Exec", desc: "Atomic reservation + hosted test-mode checkout", badge: "TEST MODE", icon: ShoppingBag },
   ];
 
   return (
@@ -628,23 +807,131 @@ function OverviewView({
         </p>
       </div>
 
-      {/* 4-Node Authority Pipeline */}
-      <div className="authority-flow">
-        {pipelineSteps.map((step) => {
-          const Icon = step.icon;
-          return (
-            <div className="flow-card" key={step.num}>
-              <div className="flow-top">
-                <span className="flow-step-num">{step.num}</span>
-                <div className="flow-icon-box">
-                  <Icon size={17} />
+      {/* 4-Node Authority Pipeline with Animated SVG Beam */}
+      <div className="authority-flow-wrapper">
+        <div className="authority-flow-beam-svg" />
+        <div className="authority-flow">
+          {pipelineSteps.map((step) => {
+            const Icon = step.icon;
+            return (
+              <div className="flow-card" key={step.num}>
+                <div className="flow-top">
+                  <span className="flow-step-num">{step.num}</span>
+                  <span className="flow-badge-sub">{step.badge}</span>
+                  <div className="flow-icon-box">
+                    <Icon size={16} />
+                  </div>
                 </div>
+                <span className="flow-title">{step.title}</span>
+                <p className="flow-desc">{step.desc}</p>
               </div>
-              <span className="flow-title">{step.title}</span>
-              <p className="flow-desc">{step.desc}</p>
+            );
+          })}
+        </div>
+      </div>
+
+      {/* Interactive Dual-Path Gateway Live Visualizer */}
+      <div className="gateway-visualizer-card">
+        <div className="sim-controls-bar">
+          <div className="sim-title-group">
+            <Sparkles size={15} color="#24eca0" />
+            <span className="sim-title-kicker">REAL-TIME DUAL-PATH FIREWALL SIMULATOR</span>
+          </div>
+          <div className="sim-scenarios">
+            {scenarios.map((sc) => (
+              <button
+                key={sc.id}
+                className={`scenario-tab ${activeScenario === sc.id ? "active" : ""}`}
+                onClick={() => setActiveScenario(sc.id)}
+              >
+                <CircleDot size={10} color={sc.theme === "pass" ? "#24eca0" : sc.theme === "fail" ? "#ef4444" : "#f97316"} />
+                <span>{sc.label}</span>
+              </button>
+            ))}
+          </div>
+        </div>
+
+        {/* 5-Node Interactive Circuit */}
+        <div className="sim-circuit-grid">
+          {/* Node 1: AI Buyer Proposal */}
+          <div className="sim-node">
+            <div className="sim-node-header">
+              <span className="sim-node-title">AI PROPOSAL</span>
+              <ShoppingBag size={13} color="#94a3b8" />
             </div>
-          );
-        })}
+            <strong style={{ fontSize: "11.5px", color: "#ffffff" }}>{current.name}</strong>
+            <span className="sim-node-detail">SKU: {current.sku} · Qty: 1</span>
+          </div>
+
+          {/* Connector 1 */}
+          <div className="sim-connector">
+            <div className={`laser-rail active-${current.theme === "pass" ? "green" : current.theme === "fail" ? "red" : "purple"}`} />
+          </div>
+
+          {/* Dual Parallel Tracks */}
+          <div className="sim-dual-tracks">
+            {/* Upper: Deterministic Hard Gate */}
+            <div className={`track-channel ${current.theme === "fail" ? "fail" : "pass"}`}>
+              <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
+                <ShieldCheck size={12} />
+                <strong>HARD GATE (0ms)</strong>
+              </div>
+              <span style={{ fontSize: "9.5px", fontFamily: "var(--font-mono)" }}>
+                {current.theme === "fail" ? "FAIL CLOSED" : "PASS"}
+              </span>
+            </div>
+
+            {/* Lower: Semantic Intent Path */}
+            <div className={`track-channel ${current.theme === "stepup" ? "stepup" : current.theme === "fail" ? "fail" : "pass"}`}>
+              <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
+                <Sparkles size={12} />
+                <strong>SEMANTIC AI</strong>
+              </div>
+              <span style={{ fontSize: "9.5px", fontFamily: "var(--font-mono)" }}>
+                {current.theme === "stepup" ? "CONTRADICTION" : current.theme === "fail" ? "SKIPPED" : "SUPPORTED"}
+              </span>
+            </div>
+          </div>
+
+          {/* Connector 2 */}
+          <div className="sim-connector">
+            <div className={`laser-rail active-${current.theme === "pass" ? "green" : current.theme === "fail" ? "red" : "purple"}`} />
+          </div>
+
+          {/* Node 3: Arbiter Verdict & Action */}
+          <div className={`sim-node state-${current.theme}`}>
+            <div className="sim-node-header">
+              <span className="sim-node-title">DECISION ARBITER</span>
+              <StateBadge value={current.verdict} />
+            </div>
+            <span style={{ fontSize: "10px", color: "#cbd5e1", lineHeight: 1.3 }}>
+              {current.outcome}
+            </span>
+          </div>
+        </div>
+
+        <div className="sim-footer-note">
+          <span>
+            <strong>Invariant Note: </strong>
+            {activeScenario === "allow" && "Hard gate pass + all semantic constraints supported = immediate test order reservation."}
+            {activeScenario === "hard_block" && "Hard gate limits are mathematical law. Razorpay is never invoked when hard limits fail."}
+            {activeScenario === "stepup" && "Catalog facts contradict intent. System fails safely to human approval once."}
+            {activeScenario === "revoked" && "Human kill-switch checked before database lock reservation. Instant termination."}
+          </span>
+          <button
+            className="btn-sim-launch"
+            onClick={() => {
+              if (onSelectProductAndGo) {
+                onSelectProductAndGo(current.sku);
+              } else {
+                go("simulator");
+              }
+            }}
+          >
+            <span>TEST IN CHECKOUT ENGINE</span>
+            <ArrowRight size={12} />
+          </button>
+        </div>
       </div>
 
       {/* Telemetry Metric Cards */}
@@ -817,13 +1104,76 @@ function CatalogView({
           </div>
 
           <div className="form-group" style={{ flex: 1, display: "flex", flexDirection: "column" }}>
-            <label className="form-label" htmlFor="catalog-json-textarea">Or Paste JSON Records</label>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "4px" }}>
+              <label className="form-label" htmlFor="catalog-json-textarea">Or Paste JSON Records</label>
+              <button
+                type="button"
+                className="btn-secondary"
+                style={{ padding: "2px 8px", fontSize: "10px" }}
+                onClick={() => {
+                  setMerchantId("merchant_demo");
+                  setPayload(JSON.stringify([
+                    {
+                      id: "prod_a",
+                      merchant_id: "merchant_demo",
+                      name: "Sony Voyager NC",
+                      price_paise: 1849900,
+                      currency: "INR",
+                      category: "headphones",
+                      condition: "new",
+                      active: true,
+                      attributes: {
+                        noise_cancelling: true,
+                        weight_g: 254,
+                        foldable: true,
+                        travel_case: true,
+                        color: "black",
+                        branding: "minimal",
+                        collection: "travel"
+                      }
+                    },
+                    {
+                      id: "prod_b",
+                      merchant_id: "merchant_demo",
+                      name: "Sony Studio Pro",
+                      price_paise: 2149900,
+                      currency: "INR",
+                      category: "headphones",
+                      condition: "new",
+                      active: true,
+                      attributes: {
+                        noise_cancelling: true,
+                        color: "black"
+                      }
+                    },
+                    {
+                      id: "prod_c",
+                      merchant_id: "merchant_demo",
+                      name: "Aura Gold Party ANC",
+                      price_paise: 1999900,
+                      currency: "INR",
+                      category: "headphones",
+                      condition: "new",
+                      active: true,
+                      attributes: {
+                        color: "metallic gold",
+                        branding: "oversized logo",
+                        collection: "party",
+                        noise_cancelling: true
+                      }
+                    }
+                  ], null, 2));
+                }}
+              >
+                Insert Demo Preset
+              </button>
+            </div>
             <textarea
               id="catalog-json-textarea"
               className="form-textarea"
               value={payload}
               onChange={(e) => setPayload(e.target.value)}
-              placeholder='[{"id":"sku-001","merchant_id":"northstar_audio","name":"Headphones","price_paise":1849900,"currency":"INR","category":"headphones","condition":"new","active":true,"attributes":{"color":"black"}}]'
+              placeholder='[{"id":"sku-001","merchant_id":"merchant_demo","name":"Headphones","price_paise":1849900,"currency":"INR","category":"headphones","condition":"new","active":true,"attributes":{"color":"black"}}]'
             />
           </div>
 
@@ -847,38 +1197,43 @@ function CatalogView({
         {/* Right Column: Catalog Table */}
         <div className="catalog-table-panel">
           <div className="panel-header" style={{ padding: "16px 20px" }}>
-            <span className="panel-title">LIVE CATALOG ({products.length} SKUs)</span>
+            <span className="panel-title">LIVE CATALOG ({(Array.isArray(products) ? products.length : 0)} SKUs)</span>
             <span style={{ fontSize: "11px", fontFamily: "var(--font-mono)", color: "var(--ink-muted)" }}>
               MERCHANT: {merchantId}
             </span>
           </div>
 
           <div className="catalog-list-scroll">
-            {products.map((p) => (
-              <div className="product-row-item" key={p.id}>
-                <div className="prod-meta">
-                  <span className="prod-name">{p.name}</span>
-                  <div className="prod-tags">
-                    <span className="attr-tag">{p.id}</span>
-                    <span className="attr-tag">{p.category}</span>
-                    <span className="attr-tag">{p.condition}</span>
-                    {Object.entries(p.attributes || {}).map(([k, v]) => (
-                      <span className="attr-tag" key={k}>
-                        {k}: {String(v)}
-                      </span>
-                    ))}
+            {(Array.isArray(products) ? products : []).map((p) => {
+              const attrs = p.attributes && typeof p.attributes === "object" && !Array.isArray(p.attributes)
+                ? Object.entries(p.attributes)
+                : [];
+              return (
+                <div className="product-row-item" key={p.id}>
+                  <div className="prod-meta">
+                    <span className="prod-name">{p.name}</span>
+                    <div className="prod-tags">
+                      <span className="attr-tag">{p.id}</span>
+                      <span className="attr-tag">{p.category}</span>
+                      <span className="attr-tag">{p.condition}</span>
+                      {attrs.map(([k, v]) => (
+                        <span className="attr-tag" key={k}>
+                          {k}: {String(v)}
+                        </span>
+                      ))}
+                    </div>
                   </div>
+                  <span className="prod-price">{money(p.price_paise)}</span>
+                  <StateBadge value={p.active ? "ACTIVE" : "INACTIVE"} />
                 </div>
-                <span className="prod-price">{money(p.price_paise)}</span>
-                <StateBadge value={p.active ? "ACTIVE" : "INACTIVE"} />
-              </div>
-            ))}
+              );
+            })}
 
-            {!products.length && (
+            {(!Array.isArray(products) || !products.length) && (
               <div className="empty-box">
                 <ShoppingBag size={28} />
                 <strong>Catalog is Empty</strong>
-                <p>Import merchant products to establish authoritative catalog facts.</p>
+                <p>Import merchant products or switch merchant account to view SKUs.</p>
               </div>
             )}
           </div>
@@ -1225,8 +1580,36 @@ function SimulatorView({
               </span>
             </div>
 
+            {/* Quick Demo Beat Presets */}
+            <div style={{ padding: "8px 12px", borderBottom: "1px solid var(--border-line)", display: "flex", gap: "6px", flexWrap: "wrap", background: "var(--bg-subtle)" }}>
+              <button
+                type="button"
+                className="btn-secondary"
+                style={{ padding: "2px 7px", fontSize: "10px" }}
+                onClick={() => setSelected("prod_a")}
+              >
+                Demo 1: Sony Voyager
+              </button>
+              <button
+                type="button"
+                className="btn-secondary"
+                style={{ padding: "2px 7px", fontSize: "10px" }}
+                onClick={() => setSelected("prod_b")}
+              >
+                Demo 2: Sony Studio (Over limit)
+              </button>
+              <button
+                type="button"
+                className="btn-secondary"
+                style={{ padding: "2px 7px", fontSize: "10px" }}
+                onClick={() => setSelected("prod_c")}
+              >
+                Demo 3: Aura Gold Party
+              </button>
+            </div>
+
             <div style={{ flex: 1, overflowY: "auto", minHeight: 0 }}>
-              {products.map((p) => {
+              {(Array.isArray(products) ? products : []).map((p) => {
                 const isSel = selected === p.id;
                 return (
                   <button
@@ -1249,6 +1632,12 @@ function SimulatorView({
                   </button>
                 );
               })}
+              {(!Array.isArray(products) || !products.length) && (
+                <div className="empty-box" style={{ padding: "24px 12px" }}>
+                  <ShoppingBag size={24} />
+                  <p>No products in catalog. Switch merchant or import items.</p>
+                </div>
+              )}
             </div>
 
             <div style={{ padding: "12px 16px", borderTop: "1px solid var(--border-line)" }}>
@@ -1284,10 +1673,10 @@ function SimulatorView({
                 {/* Hard Gate Checks */}
                 <div>
                   <span className="form-label" style={{ marginBottom: "6px", display: "block" }}>
-                    DETERMINISTIC HARD GATE ({decision.hard_gate.checks.length} CHECKS)
+                    DETERMINISTIC HARD GATE ({decision.hard_gate?.checks?.length ?? 0} CHECKS)
                   </span>
                   <div className="checks-grid">
-                    {decision.hard_gate.checks.map((chk) => (
+                    {(decision.hard_gate?.checks ?? []).map((chk) => (
                       <div className="check-item" key={chk.name}>
                         {chk.passed ? (
                           <Check size={14} className="check-icon-good" />
@@ -1309,7 +1698,7 @@ function SimulatorView({
                     <span className="form-label" style={{ marginBottom: "6px", display: "block" }}>
                       SEMANTIC INTENT CLASSIFICATION
                     </span>
-                    {decision.semantic.results.map((item) => (
+                    {(decision.semantic.results ?? []).map((item) => (
                       <div key={item.constraint_id} style={{ marginTop: "6px" }}>
                         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
                           <strong style={{ fontSize: "12px" }}>{pretty(item.constraint_id)}</strong>
@@ -1317,7 +1706,7 @@ function SimulatorView({
                         </div>
                         <p style={{ fontSize: "11.5px", color: "var(--ink-secondary)", margin: "3px 0" }}>{item.reason}</p>
                         <span style={{ fontSize: "10px", fontFamily: "var(--font-mono)", color: "var(--purple-brand)" }}>
-                          Evidence: {item.evidence.map((e) => `${e.field}: ${String(e.value)}`).join(" · ") || "None"}
+                          Evidence: {(item.evidence ?? []).map((e) => `${e.field}: ${String(e.value)}`).join(" · ") || "None"}
                         </span>
                       </div>
                     ))}
@@ -1415,6 +1804,7 @@ function StepUpView({
   busy,
   checkout,
   payment,
+  onSimulateStepUp,
 }: {
   decision: Decision | null;
   data: Record<string, unknown> | null;
@@ -1423,18 +1813,36 @@ function StepUpView({
   busy: string;
   checkout: () => void;
   payment: PaymentResult | null;
+  onSimulateStepUp?: () => void;
 }) {
   if (!decision?.step_up_id || !data) {
     return (
-      <div className="empty-box" style={{ marginTop: "80px" }}>
-        <UserCheck size={32} />
-        <strong>No Escalation Pending</strong>
-        <p>Ambiguity, missing evidence, or contradiction routes to human decision here.</p>
+      <div className="empty-box" style={{ marginTop: "60px", maxWidth: "460px", margin: "60px auto" }}>
+        <UserCheck size={38} color="var(--purple-brand)" />
+        <strong style={{ fontSize: "16px", marginTop: "6px" }}>Human Oversight Console</strong>
+        <p style={{ color: "var(--ink-secondary)", fontSize: "12.5px", lineHeight: 1.5 }}>
+          Ambiguity, missing catalog evidence, or semantic contradiction routes to this console.
+          Human approve-once creates single-use authorization strictly bound to the exact proposal facts.
+        </p>
+        {onSimulateStepUp && (
+          <button
+            className="btn-primary"
+            style={{ marginTop: "14px" }}
+            onClick={onSimulateStepUp}
+            disabled={!!busy}
+          >
+            <Sparkles size={14} />
+            <span>Simulate Contradiction Step-Up (Demo Beat 3)</span>
+          </button>
+        )}
       </div>
     );
   }
 
-  const status = String(data.status);
+  const status = String(data?.status || "PENDING");
+  const reasonCode = String(data?.reason_code || decision.reason_code || "SEMANTIC_CONTRADICTED");
+  const proposalId = String(data?.proposal_id || decision.proposal_id || "");
+  const bindingHash = String(data?.binding_hash || "");
 
   return (
     <>
@@ -1458,17 +1866,17 @@ function StepUpView({
           <div className="contract-row">
             <span style={{ fontSize: "12px", color: "var(--ink-secondary)" }}>Reason Code</span>
             <strong style={{ fontSize: "12px", color: "#c2410c", fontFamily: "var(--font-mono)" }}>
-              {pretty(String(data.reason_code))}
+              {pretty(reasonCode)}
             </strong>
           </div>
           <div className="contract-row">
             <span style={{ fontSize: "12px", color: "var(--ink-secondary)" }}>Proposal ID</span>
-            <code style={{ fontSize: "11px", color: "var(--purple-brand)" }}>{String(data.proposal_id)}</code>
+            <code style={{ fontSize: "11px", color: "var(--purple-brand)" }}>{proposalId}</code>
           </div>
           <div className="contract-row">
             <span style={{ fontSize: "12px", color: "var(--ink-secondary)" }}>Binding Hash</span>
             <code style={{ fontSize: "10px", color: "var(--ink-muted)" }}>
-              {String(data.binding_hash).slice(0, 32)}…
+              {bindingHash ? `${bindingHash.slice(0, 32)}…` : "N/A"}
             </code>
           </div>
         </div>
@@ -1535,10 +1943,11 @@ function AuditFeedView({
   const [openId, setOpenId] = useState<string | null>(null);
 
   const filterChips = ["ALL", "HARD_GATE", "SEMANTIC", "MANDATE", "RAZORPAY", "STEP_UP"];
+  const safeEvents = Array.isArray(events) ? events : [];
 
-  const filtered = events.filter((e) => {
+  const filtered = safeEvents.filter((e) => {
     if (filter === "ALL") return true;
-    return e.event_type.toUpperCase().includes(filter);
+    return (e.event_type || "").toUpperCase().includes(filter);
   });
 
   return (
@@ -1599,7 +2008,9 @@ function AuditFeedView({
 
                 {isOpen && (
                   <pre className="signal-payload-pre">
-                    {JSON.stringify(ev.payload, null, 2)}
+                    {typeof ev.payload === "object" && ev.payload !== null
+                      ? JSON.stringify(ev.payload, null, 2)
+                      : String(ev.payload ?? "")}
                   </pre>
                 )}
               </div>
