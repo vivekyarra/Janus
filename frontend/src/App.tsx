@@ -508,24 +508,10 @@ export default function App({
 
   return (
     <div className="window-shell">
-      {/* Top Enterprise Telemetry Bar */}
+      {/* Top Scout-Style Announcement Banner */}
       <div className="announcement-bar">
-        <div className="announcement-left">
-          <span className="announcement-badge">JANUS CORE</span>
-          <span className="announcement-sub">
-            Deterministic Hard Gate · Semantic Intent Path · Razorpay Test-Mode Execution
-          </span>
-        </div>
-        <div className="announcement-right">
-          <span className="telemetry-pill">
-            <span className="live-radar-ping" />
-            <span>P95: 0.54ms</span>
-          </span>
-          <span className="telemetry-pill">
-            <ShieldCheck size={11} color="#24eca0" />
-            <span>FAIL-CLOSED ACTIVE</span>
-          </span>
-        </div>
+        <span className="announcement-badge">Live Gateway</span>
+        <span>Deterministic Hard Gate · Semantic Intent Path · Razorpay Test-Mode Execution</span>
       </div>
 
       {/* Main Cockpit Body (100dvh strict fit) */}
@@ -834,7 +820,7 @@ function OverviewView({
       <div className="gateway-visualizer-card">
         <div className="sim-controls-bar">
           <div className="sim-title-group">
-            <Sparkles size={15} color="#24eca0" />
+            <Sparkles size={15} color="#6a3df0" />
             <span className="sim-title-kicker">REAL-TIME DUAL-PATH FIREWALL SIMULATOR</span>
           </div>
           <div className="sim-scenarios">
@@ -859,7 +845,7 @@ function OverviewView({
               <span className="sim-node-title">AI PROPOSAL</span>
               <ShoppingBag size={13} color="#94a3b8" />
             </div>
-            <strong style={{ fontSize: "11.5px", color: "#ffffff" }}>{current.name}</strong>
+            <strong style={{ fontSize: "11.5px", color: "var(--ink)" }}>{current.name}</strong>
             <span className="sim-node-detail">SKU: {current.sku} · Qty: 1</span>
           </div>
 
@@ -904,7 +890,7 @@ function OverviewView({
               <span className="sim-node-title">DECISION ARBITER</span>
               <StateBadge value={current.verdict} />
             </div>
-            <span style={{ fontSize: "10px", color: "#cbd5e1", lineHeight: 1.3 }}>
+            <span style={{ fontSize: "10px", color: "var(--ink-secondary)", lineHeight: 1.3 }}>
               {current.outcome}
             </span>
           </div>

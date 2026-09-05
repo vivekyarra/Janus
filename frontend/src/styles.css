@@ -104,75 +104,31 @@ code, pre {
   overflow: hidden;
 }
 
-/* Top Announcement & Telemetry Bar */
+/* Top Announcement Banner (Scout Style - Reverted to purple gradient) */
 .announcement-bar {
-  height: 36px;
-  background: #11141a;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+  height: 30px;
+  background: linear-gradient(90deg, #6a3df0, #845ef7);
   color: #ffffff;
   display: flex;
   align-items: center;
-  justify-content: space-between;
-  padding: 0 20px;
+  justify-content: center;
+  gap: 10px;
+  font-size: 11.5px;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  padding: 0 16px;
   flex-shrink: 0;
   z-index: 50;
-  font-size: 11.5px;
-}
-.announcement-left {
-  display: flex;
-  align-items: center;
-  gap: 12px;
 }
 .announcement-badge {
-  background: linear-gradient(135deg, #6a3df0, #845ef7);
-  padding: 2px 9px;
+  background: rgba(255, 255, 255, 0.22);
+  padding: 1px 7px;
   border-radius: 999px;
-  font-size: 10px;
+  font-size: 9.5px;
   font-weight: 800;
   text-transform: uppercase;
   letter-spacing: 0.06em;
   color: #ffffff;
-  box-shadow: 0 0 12px rgba(106, 61, 240, 0.4);
-}
-.announcement-sub {
-  color: #94a3b8;
-  font-size: 11px;
-}
-.announcement-right {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-}
-.telemetry-pill {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  background: rgba(255, 255, 255, 0.06);
-  border: 1px solid rgba(255, 255, 255, 0.1);
-  padding: 2px 8px;
-  border-radius: 999px;
-  font-family: var(--font-mono);
-  font-size: 10px;
-  font-weight: 600;
-  color: #cbd5e1;
-}
-.live-radar-ping {
-  width: 6px;
-  height: 6px;
-  border-radius: 50%;
-  background: #24eca0;
-  position: relative;
-}
-.live-radar-ping::after {
-  content: '';
-  position: absolute;
-  top: -2px;
-  left: -2px;
-  width: 10px;
-  height: 10px;
-  border-radius: 50%;
-  border: 1.5px solid #24eca0;
-  animation: radar-ring 2s infinite ease-out;
 }
 
 /* ==========================================================================
@@ -713,32 +669,45 @@ code, pre {
 
 /* Hero Action Tile (Next Safe Step) */
 .hero-action-tile {
-  background: linear-gradient(135deg, #181e15 0%, #293324 100%);
-  color: #ffffff;
+  background: #ffffff;
+  color: var(--ink);
+  border: 1px solid var(--border-line);
   border-radius: 16px;
   padding: 24px;
   display: flex;
   flex-direction: column;
   justify-content: space-between;
   box-shadow: var(--shadow-card);
+  position: relative;
+  overflow: hidden;
+}
+.hero-action-tile::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 3px;
+  background: linear-gradient(90deg, var(--purple-brand), #845ef7);
 }
 .hero-kicker {
   font-size: 10px;
   font-family: var(--font-mono);
-  color: var(--mint-brand);
+  color: var(--purple-brand);
   font-weight: 700;
   letter-spacing: 0.08em;
   text-transform: uppercase;
 }
 .hero-action-tile h3 {
-  font-size: 22px;
+  font-size: 20px;
   font-weight: 800;
+  color: var(--ink);
   letter-spacing: -0.02em;
   margin: 8px 0;
 }
 .hero-action-tile p {
   font-size: 13px;
-  color: rgba(255,255,255,0.72);
+  color: var(--ink-secondary);
   line-height: 1.5;
   margin-bottom: 16px;
 }
@@ -1441,13 +1410,13 @@ code, pre {
    INTERACTIVE DUAL-PATH GATEWAY VISUALIZER
    ========================================================================== */
 .gateway-visualizer-card {
-  background: linear-gradient(135deg, #0d1015 0%, #171c24 100%);
-  color: #f1f5f9;
-  border: 1px solid rgba(255, 255, 255, 0.1);
+  background: #ffffff;
+  color: var(--ink);
+  border: 1px solid var(--border-line);
   border-radius: 16px;
   padding: 16px 20px;
   margin-bottom: 16px;
-  box-shadow: 0 12px 32px -4px rgba(0, 0, 0, 0.35);
+  box-shadow: var(--shadow-card);
   position: relative;
   overflow: hidden;
   flex-shrink: 0;
@@ -1459,7 +1428,7 @@ code, pre {
   right: -20%;
   width: 300px;
   height: 300px;
-  background: radial-gradient(circle, rgba(106, 61, 240, 0.15) 0%, transparent 70%);
+  background: radial-gradient(circle, rgba(106, 61, 240, 0.05) 0%, transparent 70%);
   pointer-events: none;
 }
 .sim-controls-bar {
@@ -1480,7 +1449,7 @@ code, pre {
   font-family: var(--font-mono);
   font-weight: 800;
   letter-spacing: 0.08em;
-  color: #24eca0;
+  color: var(--purple-brand);
   text-transform: uppercase;
 }
 .sim-scenarios {
@@ -1490,9 +1459,9 @@ code, pre {
   flex-wrap: wrap;
 }
 .scenario-tab {
-  background: rgba(255, 255, 255, 0.06);
-  border: 1px solid rgba(255, 255, 255, 0.1);
-  color: #94a3b8;
+  background: var(--bg-subtle);
+  border: 1px solid var(--border-line);
+  color: var(--ink-secondary);
   padding: 4px 11px;
   border-radius: 999px;
   font-size: 11px;
@@ -1504,14 +1473,15 @@ code, pre {
   gap: 5px;
 }
 .scenario-tab:hover {
-  background: rgba(255, 255, 255, 0.12);
-  color: #ffffff;
+  background: #e6eae2;
+  color: var(--ink);
 }
 .scenario-tab.active {
-  background: rgba(106, 61, 240, 0.4);
-  border-color: #a78bfa;
-  color: #ffffff;
-  box-shadow: 0 0 14px rgba(106, 61, 240, 0.5);
+  background: var(--purple-tint);
+  border-color: var(--purple-light);
+  color: var(--purple-deep);
+  font-weight: 700;
+  box-shadow: 0 1px 4px rgba(106, 61, 240, 0.12);
 }
 
 /* 5-Node Interactive Circuit */
@@ -1520,20 +1490,21 @@ code, pre {
   grid-template-columns: 180px 1fr 190px 1fr 170px;
   align-items: center;
   gap: 8px;
-  background: rgba(0, 0, 0, 0.35);
-  border: 1px solid rgba(255, 255, 255, 0.07);
+  background: #f8faf6;
+  border: 1px solid var(--border-line);
   border-radius: 12px;
   padding: 14px 16px;
 }
 .sim-node {
-  background: rgba(255, 255, 255, 0.04);
-  border: 1px solid rgba(255, 255, 255, 0.12);
+  background: #ffffff;
+  border: 1px solid var(--border-line);
   border-radius: 10px;
   padding: 10px 12px;
   display: flex;
   flex-direction: column;
   gap: 3px;
   transition: all 0.25s ease;
+  box-shadow: var(--shadow-sm);
 }
 .sim-node-header {
   display: flex;
@@ -1544,27 +1515,27 @@ code, pre {
   font-size: 11px;
   font-weight: 700;
   letter-spacing: 0.02em;
-  color: #e2e8f0;
+  color: var(--ink);
 }
 .sim-node-detail {
   font-size: 10px;
   font-family: var(--font-mono);
-  color: #94a3b8;
+  color: var(--ink-muted);
 }
 .sim-node.state-pass {
-  border-color: rgba(36, 236, 160, 0.6);
-  background: rgba(36, 236, 160, 0.08);
-  box-shadow: 0 0 18px rgba(36, 236, 160, 0.2);
+  border-color: rgba(16, 185, 129, 0.5);
+  background: #f0fdf4;
+  box-shadow: 0 2px 8px rgba(16, 185, 129, 0.15);
 }
 .sim-node.state-fail {
-  border-color: rgba(239, 68, 68, 0.6);
-  background: rgba(239, 68, 68, 0.1);
-  box-shadow: 0 0 18px rgba(239, 68, 68, 0.25);
+  border-color: rgba(239, 68, 68, 0.5);
+  background: #fef2f2;
+  box-shadow: 0 2px 8px rgba(239, 68, 68, 0.15);
 }
 .sim-node.state-stepup {
-  border-color: rgba(249, 115, 22, 0.6);
-  background: rgba(249, 115, 22, 0.1);
-  box-shadow: 0 0 18px rgba(249, 115, 22, 0.2);
+  border-color: rgba(249, 115, 22, 0.5);
+  background: #fff7ed;
+  box-shadow: 0 2px 8px rgba(249, 115, 22, 0.15);
 }
 .sim-dual-tracks {
   display: flex;
@@ -1572,30 +1543,32 @@ code, pre {
   gap: 8px;
 }
 .track-channel {
-  background: rgba(255, 255, 255, 0.04);
-  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: #ffffff;
+  border: 1px solid var(--border-line);
   border-radius: 8px;
   padding: 6px 10px;
   display: flex;
   align-items: center;
   justify-content: space-between;
   font-size: 10.5px;
+  color: var(--ink-secondary);
   transition: all 0.2s ease;
+  box-shadow: 0 1px 2px rgba(0,0,0,0.03);
 }
 .track-channel.pass {
-  border-color: rgba(36, 236, 160, 0.4);
-  background: rgba(36, 236, 160, 0.06);
-  color: #24eca0;
+  border-color: rgba(16, 185, 129, 0.35);
+  background: #ecfdf5;
+  color: #065f46;
 }
 .track-channel.fail {
-  border-color: rgba(239, 68, 68, 0.4);
-  background: rgba(239, 68, 68, 0.08);
-  color: #ef4444;
+  border-color: rgba(239, 68, 68, 0.35);
+  background: #fef2f2;
+  color: #991b1b;
 }
 .track-channel.stepup {
-  border-color: rgba(249, 115, 22, 0.4);
-  background: rgba(249, 115, 22, 0.08);
-  color: #f97316;
+  border-color: rgba(249, 115, 22, 0.35);
+  background: #fff7ed;
+  color: #9a3412;
 }
 
 /* Laser Connectors */
@@ -1611,7 +1584,7 @@ code, pre {
   left: 0;
   right: 0;
   height: 2px;
-  background: rgba(255, 255, 255, 0.12);
+  background: #e2e8f0;
   overflow: hidden;
 }
 .laser-rail.active-green::after {
@@ -1621,7 +1594,7 @@ code, pre {
   left: 0;
   width: 60px;
   height: 100%;
-  background: linear-gradient(90deg, transparent, #24eca0, transparent);
+  background: linear-gradient(90deg, transparent, #10b981, transparent);
   animation: laser-flow-right 1.2s infinite linear;
 }
 .laser-rail.active-purple::after {
@@ -1631,7 +1604,7 @@ code, pre {
   left: 0;
   width: 60px;
   height: 100%;
-  background: linear-gradient(90deg, transparent, #bf8efd, transparent);
+  background: linear-gradient(90deg, transparent, #6a3df0, transparent);
   animation: laser-flow-right 1.2s infinite linear;
 }
 .laser-rail.active-red::after {
@@ -1650,12 +1623,15 @@ code, pre {
   align-items: center;
   justify-content: space-between;
   font-size: 11px;
-  color: #94a3b8;
+  color: var(--ink-muted);
+}
+.sim-footer-note strong {
+  color: var(--ink);
 }
 .btn-sim-launch {
-  background: rgba(255, 255, 255, 0.08);
-  color: #ffffff;
-  border: 1px solid rgba(255, 255, 255, 0.16);
+  background: var(--purple-tint);
+  color: var(--purple-deep);
+  border: 1px solid var(--purple-light);
   padding: 4px 12px;
   border-radius: 999px;
   font-size: 11px;
@@ -1668,8 +1644,9 @@ code, pre {
 }
 .btn-sim-launch:hover {
   background: var(--purple-brand);
-  border-color: var(--purple-light);
-  box-shadow: 0 0 12px rgba(106, 61, 240, 0.4);
+  color: #ffffff;
+  border-color: var(--purple-brand);
+  box-shadow: 0 2px 8px rgba(106, 61, 240, 0.25);
 }
 
 /* Error Boundary Fallback */
