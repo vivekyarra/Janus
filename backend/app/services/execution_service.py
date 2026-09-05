@@ -20,9 +20,21 @@ class ExecutionService:
         proposal = self.db.scalar(select(CheckoutProposal).where(CheckoutProposal.id == proposal_id).with_for_update())
         if proposal is None:
             raise AuthorizationDenied("Proposal not found")
-        if proposal.status in {"EXECUTED", "PAID"}:
+
+        # Idempotent replay: return existing result for already-completed proposals
+        if proposal.status in {"ORDER_CREATED", "EXECUTED", "PAID"}:
             product = self.db.get(Product, proposal.product_id)
-            return {"id": proposal.razorpay_order_id, "status": "created", "idempotent_replay": True, "key_id": getattr(self.razorpay, "public_key_id", None), "amount": proposal.expected_amount_paise, "currency": proposal.currency, "product_name": product.name if product else None}
+            replay_status = "paid" if proposal.status == "PAID" else "created"
+            return {
+                "id": proposal.razorpay_order_id,
+                "status": replay_status,
+                "idempotent_replay": True,
+                "key_id": getattr(self.razorpay, "public_key_id", None),
+                "amount": proposal.expected_amount_paise,
+                "currency": proposal.currency,
+                "product_name": product.name if product else None,
+            }
+
         allowed_states = {"ALLOWED"} | ({"STEP_UP"} if approved_step_up else set())
         if proposal.status not in allowed_states:
             raise AuthorizationDenied(f"Proposal state {proposal.status} cannot execute")
@@ -31,6 +43,8 @@ class ExecutionService:
         product = self.db.get(Product, proposal.product_id)
         if mandate is None or product is None:
             raise AuthorizationDenied("Authorization state unavailable")
+
+        # Re-check hard constraints at execution time (revocation, expiry, etc.)
         result = evaluate_hard_constraints(mandate, product, proposal.quantity, proposal.agent_request_id, datetime.now(timezone.utc))
         if result.status == "FAIL":
             proposal.status = "BLOCKED"
@@ -39,27 +53,62 @@ class ExecutionService:
             self.db.commit()
             raise AuthorizationDenied(str(result.reason_code))
 
+        # Reserve execution slot — but do NOT commit yet.
+        # The Razorpay call happens inside the same logical transaction.
+        # If Razorpay fails, we rollback the reservation.
+        previous_execution_count = mandate.execution_count
+        previous_mandate_status = mandate.status
+
         proposal.status = "EXECUTING"
         mandate.execution_count += 1
         if mandate.execution_count >= mandate.max_executions:
             mandate.status = "CONSUMED"
-        write_audit(self.db, "EXECUTION_RESERVED", "proposal", proposal.id, {"mandate_id": mandate.id, "mandate_version": mandate.version, "execution_count": mandate.execution_count})
-        self.db.commit()
+        write_audit(self.db, "EXECUTION_RESERVED", "proposal", proposal.id, {
+            "mandate_id": mandate.id,
+            "mandate_version": mandate.version,
+            "execution_count": mandate.execution_count,
+        })
+        # Flush to persist the reservation within the transaction, but keep row locks held
+        self.db.flush()
 
         try:
-            order = self.razorpay.create_order(amount=proposal.expected_amount_paise, currency=proposal.currency, receipt=proposal.id, notes={"janus_proposal_id": proposal.id, "janus_mandate_id": mandate.id})
+            order = self.razorpay.create_order(
+                amount=proposal.expected_amount_paise,
+                currency=proposal.currency,
+                receipt=proposal.id,
+                notes={"janus_proposal_id": proposal.id, "janus_mandate_id": mandate.id},
+            )
         except RazorpayOrderCreationFailed as exc:
-            proposal = self.db.get(CheckoutProposal, proposal.id)
+            # CRITICAL: Rollback the execution reservation on Razorpay failure.
+            # The mandate slot must NOT be consumed by a failed external call.
+            mandate.execution_count = previous_execution_count
+            mandate.status = previous_mandate_status
             proposal.status = "FAILED"
             proposal.execution_error = exc.reason_code
-            write_audit(self.db, "EXECUTION_BLOCKED", "proposal", proposal.id, {"reason_code": exc.reason_code, "razorpay_called": True, "outcome": "failed_closed"})
+            write_audit(self.db, "EXECUTION_BLOCKED", "proposal", proposal.id, {
+                "reason_code": exc.reason_code,
+                "razorpay_called": True,
+                "outcome": "failed_closed",
+                "execution_count_rolled_back": True,
+            })
             self.db.commit()
             raise
 
-        proposal = self.db.get(CheckoutProposal, proposal.id)
-        proposal.status = "EXECUTED"
+        # Razorpay succeeded — finalize
+        proposal.status = "ORDER_CREATED"
         proposal.razorpay_order_id = order["id"]
         proposal.executed_at = datetime.now(timezone.utc)
-        write_audit(self.db, "RAZORPAY_ORDER_CREATED", "proposal", proposal.id, {"razorpay_order_id": order["id"], "amount": proposal.expected_amount_paise, "currency": proposal.currency, "razorpay_called": True})
+        write_audit(self.db, "RAZORPAY_ORDER_CREATED", "proposal", proposal.id, {
+            "razorpay_order_id": order["id"],
+            "amount": proposal.expected_amount_paise,
+            "currency": proposal.currency,
+            "razorpay_called": True,
+        })
         self.db.commit()
-        return {**order, "key_id": getattr(self.razorpay, "public_key_id", None), "amount": proposal.expected_amount_paise, "currency": proposal.currency, "product_name": product.name}
+        return {
+            **order,
+            "key_id": getattr(self.razorpay, "public_key_id", None),
+            "amount": proposal.expected_amount_paise,
+            "currency": proposal.currency,
+            "product_name": product.name,
+        }

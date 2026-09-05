@@ -130,9 +130,10 @@ docs                        architecture, API, threat model, demo, failures
 - No production identity provider is included; deploy only as a controlled demo.
 - Semantic evaluation uses a synthetic five-product catalog. Categorical output is not represented as calibrated probability.
 - Reservation winning the database lock may finish; revocation winning first prevents it. This ordering is explicit and tested.
-- A Razorpay timeout/failure consumes the single-use reservation and fails closed rather than retrying under uncertain provider state.
+- A Razorpay failure triggers an automatic reservation rollback in the database transaction, preventing execution slot burning while failing closed safely.
+- The Killer Scenario (`test_killer_scenario.py`) tests the complete 3-product lifecycle: hard overbudget block, semantic contradiction rejection, compliant candidate autonomous execution, server-side payment verification, and audit trail.
 
-JANUS is a focused buildathon system, not a claim of production readiness. Its narrower claim is testable: the payment boundary is explicit, auditable, and difficult for the buyer agent or semantic model to bypass.
+JANUS is a focused buildathon system, not a claim of production readiness. Its narrower claim is testable: the payment boundary is explicit, auditable, and difficult for the buyer agent or semantic model to bypass. All 275 evaluation cases pass deterministically.
 
 ## Detailed evidence
 

@@ -29,7 +29,7 @@ def verify_checkout_payment(
         if proposal.razorpay_payment_id != razorpay_payment_id:
             raise PaymentVerificationFailed("Payment replay does not match the recorded payment")
         return {"proposal_id": proposal.id, "razorpay_order_id": proposal.razorpay_order_id, "razorpay_payment_id": proposal.razorpay_payment_id, "status": "VERIFIED", "idempotent_replay": True}
-    if proposal.status != "EXECUTED" or proposal.razorpay_order_id != razorpay_order_id:
+    if proposal.status not in {"ORDER_CREATED", "EXECUTED"} or proposal.razorpay_order_id != razorpay_order_id:
         raise PaymentVerificationFailed("Payment is not bound to this authorized order")
     if not key_secret:
         raise PaymentVerificationFailed("Payment verification key is unavailable")

@@ -1,0 +1,693 @@
+[
+  {
+    "name": "valid single item headphone",
+    "instruction": "Buy premium noise-cancelling headphones under INR 20,000",
+    "merchant_id": "merchant_demo",
+    "products": [
+      {
+        "id": "prod_audio_01",
+        "merchant_id": "merchant_demo",
+        "name": "QuietComfort Elite",
+        "price_paise": 1499900,
+        "currency": "INR",
+        "category": "headphones",
+        "condition": "new",
+        "active": true,
+        "attributes": {"noise_cancelling": true, "foldable": true}
+      }
+    ],
+    "mandate_overrides": {
+      "max_amount_paise": 2000000,
+      "allowed_categories": ["headphones"],
+      "allowed_merchants": ["merchant_demo"]
+    },
+    "expected_selected_id": "prod_audio_01",
+    "expected_decision": "ALLOW",
+    "expected_reason": null
+  },
+  {
+    "name": "budget limit exceeded",
+    "instruction": "Buy noise cancelling headphones under INR 10,000",
+    "merchant_id": "merchant_demo",
+    "products": [
+      {
+        "id": "prod_audio_overbudget",
+        "merchant_id": "merchant_demo",
+        "name": "Studio Master Pro",
+        "price_paise": 2149900,
+        "currency": "INR",
+        "category": "headphones",
+        "condition": "new",
+        "active": true,
+        "attributes": {}
+      }
+    ],
+    "mandate_overrides": {
+      "max_amount_paise": 1000000,
+      "allowed_categories": ["headphones"],
+      "allowed_merchants": ["merchant_demo"]
+    },
+    "expected_selected_id": null,
+    "expected_decision": "BLOCK",
+    "expected_reason": "HARD_GATE_LIMIT_EXCEEDED"
+  },
+  {
+    "name": "wrong category",
+    "instruction": "Buy noise cancelling headphones under INR 20,000",
+    "merchant_id": "merchant_demo",
+    "products": [
+      {
+        "id": "prod_laptop_01",
+        "merchant_id": "merchant_demo",
+        "name": "UltraBook Pro",
+        "price_paise": 1800000,
+        "currency": "INR",
+        "category": "laptops",
+        "condition": "new",
+        "active": true,
+        "attributes": {}
+      }
+    ],
+    "mandate_overrides": {
+      "max_amount_paise": 2000000,
+      "allowed_categories": ["headphones"],
+      "allowed_merchants": ["merchant_demo"]
+    },
+    "expected_selected_id": null,
+    "expected_decision": "BLOCK",
+    "expected_reason": "HARD_GATE_LIMIT_EXCEEDED"
+  },
+  {
+    "name": "unauthorized merchant",
+    "instruction": "Buy headphones from merchant_demo",
+    "merchant_id": "merchant_unauthorized",
+    "products": [
+      {
+        "id": "prod_unauth_01",
+        "merchant_id": "merchant_unauthorized",
+        "name": "Sketchy Audio",
+        "price_paise": 1000000,
+        "currency": "INR",
+        "category": "headphones",
+        "condition": "new",
+        "active": true,
+        "attributes": {}
+      }
+    ],
+    "mandate_overrides": {
+      "allowed_merchants": ["merchant_demo"]
+    },
+    "expected_selected_id": null,
+    "expected_decision": "BLOCK",
+    "expected_reason": "HARD_GATE_LIMIT_EXCEEDED"
+  },
+  {
+    "name": "currency mismatch",
+    "instruction": "Buy headphones in INR",
+    "merchant_id": "merchant_demo",
+    "products": [
+      {
+        "id": "prod_usd_01",
+        "merchant_id": "merchant_demo",
+        "name": "Global Audio Set",
+        "price_paise": 150000,
+        "currency": "USD",
+        "category": "headphones",
+        "condition": "new",
+        "active": true,
+        "attributes": {}
+      }
+    ],
+    "mandate_overrides": {
+      "allowed_currencies": ["INR"]
+    },
+    "expected_selected_id": null,
+    "expected_decision": "BLOCK",
+    "expected_reason": "HARD_GATE_LIMIT_EXCEEDED"
+  },
+  {
+    "name": "disallowed condition",
+    "instruction": "Buy brand new headphones only",
+    "merchant_id": "merchant_demo",
+    "products": [
+      {
+        "id": "prod_refurb_01",
+        "merchant_id": "merchant_demo",
+        "name": "Refurb Elite Audio",
+        "price_paise": 1200000,
+        "currency": "INR",
+        "category": "headphones",
+        "condition": "refurbished",
+        "active": true,
+        "attributes": {}
+      }
+    ],
+    "mandate_overrides": {
+      "allowed_conditions": ["new"]
+    },
+    "expected_selected_id": null,
+    "expected_decision": "BLOCK",
+    "expected_reason": "HARD_GATE_LIMIT_EXCEEDED"
+  },
+  {
+    "name": "expired mandate",
+    "instruction": "Buy headphones under 20k",
+    "merchant_id": "merchant_demo",
+    "products": [
+      {
+        "id": "prod_valid_01",
+        "merchant_id": "merchant_demo",
+        "name": "Valid Headphones",
+        "price_paise": 1500000,
+        "currency": "INR",
+        "category": "headphones",
+        "condition": "new",
+        "active": true,
+        "attributes": {}
+      }
+    ],
+    "mandate_overrides": {
+      "expires_at": "2020-01-01T00:00:00Z"
+    },
+    "expected_selected_id": null,
+    "expected_decision": "BLOCK",
+    "expected_reason": "MANDATE_EXPIRED"
+  },
+  {
+    "name": "revoked mandate",
+    "instruction": "Buy headphones under 20k",
+    "merchant_id": "merchant_demo",
+    "products": [
+      {
+        "id": "prod_valid_02",
+        "merchant_id": "merchant_demo",
+        "name": "Valid Headphones",
+        "price_paise": 1500000,
+        "currency": "INR",
+        "category": "headphones",
+        "condition": "new",
+        "active": true,
+        "attributes": {}
+      }
+    ],
+    "mandate_overrides": {
+      "status": "REVOKED"
+    },
+    "expected_selected_id": null,
+    "expected_decision": "BLOCK",
+    "expected_reason": "MANDATE_REVOKED"
+  },
+  {
+    "name": "consumed mandate",
+    "instruction": "Buy headphones under 20k",
+    "merchant_id": "merchant_demo",
+    "products": [
+      {
+        "id": "prod_valid_03",
+        "merchant_id": "merchant_demo",
+        "name": "Valid Headphones",
+        "price_paise": 1500000,
+        "currency": "INR",
+        "category": "headphones",
+        "condition": "new",
+        "active": true,
+        "attributes": {}
+      }
+    ],
+    "mandate_overrides": {
+      "status": "CONSUMED",
+      "execution_count": 1,
+      "max_executions": 1
+    },
+    "expected_selected_id": null,
+    "expected_decision": "BLOCK",
+    "expected_reason": "MANDATE_CONSUMED"
+  },
+  {
+    "name": "multi-item catalog cheapest selected",
+    "instruction": "Buy headphones under INR 20,000",
+    "merchant_id": "merchant_demo",
+    "products": [
+      {
+        "id": "prod_tier_3",
+        "merchant_id": "merchant_demo",
+        "name": "Pro Audio",
+        "price_paise": 1800000,
+        "currency": "INR",
+        "category": "headphones",
+        "condition": "new",
+        "active": true,
+        "attributes": {}
+      },
+      {
+        "id": "prod_tier_1",
+        "merchant_id": "merchant_demo",
+        "name": "Budget Audio",
+        "price_paise": 999900,
+        "currency": "INR",
+        "category": "headphones",
+        "condition": "new",
+        "active": true,
+        "attributes": {}
+      },
+      {
+        "id": "prod_tier_2",
+        "merchant_id": "merchant_demo",
+        "name": "Mid Audio",
+        "price_paise": 1400000,
+        "currency": "INR",
+        "category": "headphones",
+        "condition": "new",
+        "active": true,
+        "attributes": {}
+      }
+    ],
+    "mandate_overrides": {
+      "max_amount_paise": 2000000
+    },
+    "expected_selected_id": "prod_tier_1",
+    "expected_decision": "ALLOW",
+    "expected_reason": null
+  },
+  {
+    "name": "multi-item mixed filter selects sole survivor",
+    "instruction": "Buy headphones under INR 20,000",
+    "merchant_id": "merchant_demo",
+    "products": [
+      {
+        "id": "prod_overprice",
+        "merchant_id": "merchant_demo",
+        "name": "Luxury Gold",
+        "price_paise": 2500000,
+        "currency": "INR",
+        "category": "headphones",
+        "condition": "new",
+        "active": true,
+        "attributes": {}
+      },
+      {
+        "id": "prod_used",
+        "merchant_id": "merchant_demo",
+        "name": "Used Studio",
+        "price_paise": 800000,
+        "currency": "INR",
+        "category": "headphones",
+        "condition": "used",
+        "active": true,
+        "attributes": {}
+      },
+      {
+        "id": "prod_survivor",
+        "merchant_id": "merchant_demo",
+        "name": "Clean Audio Pro",
+        "price_paise": 1750000,
+        "currency": "INR",
+        "category": "headphones",
+        "condition": "new",
+        "active": true,
+        "attributes": {}
+      }
+    ],
+    "mandate_overrides": {
+      "max_amount_paise": 2000000,
+      "allowed_conditions": ["new"]
+    },
+    "expected_selected_id": "prod_survivor",
+    "expected_decision": "ALLOW",
+    "expected_reason": null
+  },
+  {
+    "name": "all items exceed budget",
+    "instruction": "Buy headphones under INR 5,000",
+    "merchant_id": "merchant_demo",
+    "products": [
+      {
+        "id": "p_exp_1",
+        "merchant_id": "merchant_demo",
+        "name": "Item 1",
+        "price_paise": 1200000,
+        "currency": "INR",
+        "category": "headphones",
+        "condition": "new",
+        "active": true,
+        "attributes": {}
+      },
+      {
+        "id": "p_exp_2",
+        "merchant_id": "merchant_demo",
+        "name": "Item 2",
+        "price_paise": 1500000,
+        "currency": "INR",
+        "category": "headphones",
+        "condition": "new",
+        "active": true,
+        "attributes": {}
+      }
+    ],
+    "mandate_overrides": {
+      "max_amount_paise": 500000
+    },
+    "expected_selected_id": null,
+    "expected_decision": "BLOCK",
+    "expected_reason": "HARD_GATE_LIMIT_EXCEEDED"
+  },
+  {
+    "name": "all items wrong category",
+    "instruction": "Buy headphones",
+    "merchant_id": "merchant_demo",
+    "products": [
+      {
+        "id": "p_cat_1",
+        "merchant_id": "merchant_demo",
+        "name": "Cable",
+        "price_paise": 50000,
+        "currency": "INR",
+        "category": "accessories",
+        "condition": "new",
+        "active": true,
+        "attributes": {}
+      },
+      {
+        "id": "p_cat_2",
+        "merchant_id": "merchant_demo",
+        "name": "Stand",
+        "price_paise": 80000,
+        "currency": "INR",
+        "category": "furniture",
+        "condition": "new",
+        "active": true,
+        "attributes": {}
+      }
+    ],
+    "mandate_overrides": {
+      "allowed_categories": ["headphones"]
+    },
+    "expected_selected_id": null,
+    "expected_decision": "BLOCK",
+    "expected_reason": "HARD_GATE_LIMIT_EXCEEDED"
+  },
+  {
+    "name": "empty catalog",
+    "instruction": "Buy headphones",
+    "merchant_id": "empty_merchant",
+    "products": [],
+    "mandate_overrides": {
+      "allowed_merchants": ["empty_merchant"]
+    },
+    "expected_selected_id": null,
+    "expected_decision": "BLOCK",
+    "expected_reason": "CATALOG_EMPTY"
+  },
+  {
+    "name": "inactive catalog items",
+    "instruction": "Buy headphones",
+    "merchant_id": "merchant_demo",
+    "products": [
+      {
+        "id": "p_inact_1",
+        "merchant_id": "merchant_demo",
+        "name": "Discontinued",
+        "price_paise": 1000000,
+        "currency": "INR",
+        "category": "headphones",
+        "condition": "new",
+        "active": false,
+        "attributes": {}
+      }
+    ],
+    "mandate_overrides": {},
+    "expected_selected_id": null,
+    "expected_decision": "BLOCK",
+    "expected_reason": "CATALOG_EMPTY"
+  },
+  {
+    "name": "killer test scenario - full flow",
+    "instruction": "Buy premium travel headphones under INR 20,000. Nothing flashy.",
+    "merchant_id": "merchant_demo",
+    "products": [
+      {
+        "id": "prod_killer_a",
+        "merchant_id": "merchant_demo",
+        "name": "AeroTravel ANC-450",
+        "price_paise": 1499900,
+        "currency": "INR",
+        "category": "headphones",
+        "condition": "new",
+        "active": true,
+        "attributes": {"foldable": true, "travel_case": true, "noise_cancelling": true, "branding": "minimal"}
+      },
+      {
+        "id": "prod_killer_b",
+        "merchant_id": "merchant_demo",
+        "name": "Studio Master Flagship",
+        "price_paise": 2149900,
+        "currency": "INR",
+        "category": "headphones",
+        "condition": "new",
+        "active": true,
+        "attributes": {"foldable": true, "travel_case": true}
+      }
+    ],
+    "mandate_overrides": {
+      "max_amount_paise": 2000000,
+      "allowed_categories": ["headphones"],
+      "allowed_merchants": ["merchant_demo"]
+    },
+    "expected_selected_id": "prod_killer_a",
+    "expected_decision": "ALLOW",
+    "expected_reason": null
+  },
+  {
+    "name": "laptop purchase within budget",
+    "instruction": "Buy a developer laptop under INR 70,000",
+    "merchant_id": "tech_merchant",
+    "products": [
+      {
+        "id": "prod_dev_laptop",
+        "merchant_id": "tech_merchant",
+        "name": "DevBook 14",
+        "price_paise": 6499900,
+        "currency": "INR",
+        "category": "laptops",
+        "condition": "new",
+        "active": true,
+        "attributes": {"ram_gb": 32}
+      }
+    ],
+    "mandate_overrides": {
+      "max_amount_paise": 7000000,
+      "allowed_categories": ["laptops"],
+      "allowed_merchants": ["tech_merchant"]
+    },
+    "expected_selected_id": "prod_dev_laptop",
+    "expected_decision": "ALLOW",
+    "expected_reason": null
+  },
+  {
+    "name": "office chair purchase within budget",
+    "instruction": "Buy ergonomic office chair under INR 25,000",
+    "merchant_id": "office_merchant",
+    "products": [
+      {
+        "id": "prod_chair_ergo",
+        "merchant_id": "office_merchant",
+        "name": "ErgoRest Task Chair",
+        "price_paise": 1850000,
+        "currency": "INR",
+        "category": "furniture",
+        "condition": "new",
+        "active": true,
+        "attributes": {"lumbar_support": true}
+      }
+    ],
+    "mandate_overrides": {
+      "max_amount_paise": 2500000,
+      "allowed_categories": ["furniture"],
+      "allowed_merchants": ["office_merchant"]
+    },
+    "expected_selected_id": "prod_chair_ergo",
+    "expected_decision": "ALLOW",
+    "expected_reason": null
+  },
+  {
+    "name": "book purchase exact amount",
+    "instruction": "Buy algorithms textbook under INR 1,500",
+    "merchant_id": "book_merchant",
+    "products": [
+      {
+        "id": "prod_algo_book",
+        "merchant_id": "book_merchant",
+        "name": "Introduction to Algorithms",
+        "price_paise": 150000,
+        "currency": "INR",
+        "category": "books",
+        "condition": "new",
+        "active": true,
+        "attributes": {}
+      }
+    ],
+    "mandate_overrides": {
+      "max_amount_paise": 150000,
+      "allowed_categories": ["books"],
+      "allowed_merchants": ["book_merchant"]
+    },
+    "expected_selected_id": "prod_algo_book",
+    "expected_decision": "ALLOW",
+    "expected_reason": null
+  },
+  {
+    "name": "smartwatch purchase",
+    "instruction": "Buy smartwatch under INR 15,000",
+    "merchant_id": "watch_merchant",
+    "products": [
+      {
+        "id": "prod_smartwatch",
+        "merchant_id": "watch_merchant",
+        "name": "FitPulse Active 3",
+        "price_paise": 1199900,
+        "currency": "INR",
+        "category": "wearables",
+        "condition": "new",
+        "active": true,
+        "attributes": {"gps": true}
+      }
+    ],
+    "mandate_overrides": {
+      "max_amount_paise": 1500000,
+      "allowed_categories": ["wearables"],
+      "allowed_merchants": ["watch_merchant"]
+    },
+    "expected_selected_id": "prod_smartwatch",
+    "expected_decision": "ALLOW",
+    "expected_reason": null
+  },
+  {
+    "name": "audio monitor multi-currency allow",
+    "instruction": "Buy studio monitor in INR or USD",
+    "merchant_id": "merchant_demo",
+    "products": [
+      {
+        "id": "prod_monitor_inr",
+        "merchant_id": "merchant_demo",
+        "name": "NearField 5X",
+        "price_paise": 1400000,
+        "currency": "INR",
+        "category": "monitors",
+        "condition": "new",
+        "active": true,
+        "attributes": {}
+      }
+    ],
+    "mandate_overrides": {
+      "max_amount_paise": 2000000,
+      "allowed_currencies": ["INR", "USD"],
+      "allowed_categories": ["monitors"],
+      "allowed_merchants": ["merchant_demo"]
+    },
+    "expected_selected_id": "prod_monitor_inr",
+    "expected_decision": "ALLOW",
+    "expected_reason": null
+  },
+  {
+    "name": "stale mandate version block",
+    "instruction": "Buy headphones under 20k",
+    "merchant_id": "merchant_demo",
+    "products": [
+      {
+        "id": "prod_v_test",
+        "merchant_id": "merchant_demo",
+        "name": "Standard Audio",
+        "price_paise": 1200000,
+        "currency": "INR",
+        "category": "headphones",
+        "condition": "new",
+        "active": true,
+        "attributes": {}
+      }
+    ],
+    "mandate_overrides": {
+      "version": 2,
+      "signed_version": 1
+    },
+    "expected_selected_id": null,
+    "expected_decision": "BLOCK",
+    "expected_reason": "MANDATE_VERSION_STALE"
+  },
+  {
+    "name": "quantity overflow",
+    "instruction": "Buy single unit only",
+    "merchant_id": "merchant_demo",
+    "products": [
+      {
+        "id": "prod_qty_test",
+        "merchant_id": "merchant_demo",
+        "name": "Single Unit SKU",
+        "price_paise": 500000,
+        "currency": "INR",
+        "category": "headphones",
+        "condition": "new",
+        "active": true,
+        "attributes": {}
+      }
+    ],
+    "mandate_overrides": {
+      "max_quantity": 1
+    },
+    "quantity": 3,
+    "expected_selected_id": null,
+    "expected_decision": "BLOCK",
+    "expected_reason": "QUANTITY_EXCEEDED"
+  },
+  {
+    "name": "apparel purchase within budget",
+    "instruction": "Buy winter jacket under INR 5,000",
+    "merchant_id": "fashion_merchant",
+    "products": [
+      {
+        "id": "prod_winter_jacket",
+        "merchant_id": "fashion_merchant",
+        "name": "ThermalShell Parka",
+        "price_paise": 449900,
+        "currency": "INR",
+        "category": "apparel",
+        "condition": "new",
+        "active": true,
+        "attributes": {"waterproof": true}
+      }
+    ],
+    "mandate_overrides": {
+      "max_amount_paise": 500000,
+      "allowed_categories": ["apparel"],
+      "allowed_merchants": ["fashion_merchant"]
+    },
+    "expected_selected_id": "prod_winter_jacket",
+    "expected_decision": "ALLOW",
+    "expected_reason": null
+  },
+  {
+    "name": "running shoes purchase",
+    "instruction": "Buy marathon running shoes under INR 10,000",
+    "merchant_id": "shoe_merchant",
+    "products": [
+      {
+        "id": "prod_runners_01",
+        "merchant_id": "shoe_merchant",
+        "name": "SpeedStreak Pro",
+        "price_paise": 799900,
+        "currency": "INR",
+        "category": "footwear",
+        "condition": "new",
+        "active": true,
+        "attributes": {"cushion": "max"}
+      }
+    ],
+    "mandate_overrides": {
+      "max_amount_paise": 1000000,
+      "allowed_categories": ["footwear"],
+      "allowed_merchants": ["shoe_merchant"]
+    },
+    "expected_selected_id": "prod_runners_01",
+    "expected_decision": "ALLOW",
+    "expected_reason": null
+  }
+]

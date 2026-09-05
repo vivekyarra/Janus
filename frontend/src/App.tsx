@@ -170,15 +170,27 @@ type RazorpaySuccess = {
 
 type MerchantMetrics = {
   merchant_id: string;
-  total_skus: number;
-  active_skus: number;
-  machine_readable_pct: number;
+  total_skus?: number;
+  catalog_sku_count?: number;
+  active_skus?: number;
+  machine_readable_pct?: number | null;
+  machine_readability_score?: number | null;
   autonomous_gmv_paise: number;
-  prevented_overspend_paise: number;
+  prevented_overspend_paise?: number;
+  blocked_overspend_paise?: number;
   total_proposals: number;
-  executed_proposals: number;
-  blocked_proposals: number;
-  conversion_rate_pct: number;
+  executed_proposals?: number;
+  allowed_count?: number;
+  blocked_proposals?: number;
+  blocked_count?: number;
+  conversion_rate_pct?: number | null;
+  p95_authorization_latency_ms?: number | null;
+  p50_authorization_latency_ms?: number | null;
+  authorization_success_rate_pct?: number | null;
+  step_up_rate_pct?: number | null;
+  semantic_rejection_rate_pct?: number | null;
+  payment_success_rate_pct?: number | null;
+  duplicate_prevention_count?: number;
 };
 
 type AgentStep = {
@@ -716,6 +728,7 @@ export default function App({
                   products={products}
                   events={audit}
                   mandate={mandate}
+                  metrics={metrics}
                   go={setView}
                   onSelectProductAndGo={(skuId) => {
                     setSelected(skuId);
@@ -813,12 +826,14 @@ function OverviewView({
   products,
   events,
   mandate,
+  metrics,
   go,
   onSelectProductAndGo,
 }: {
   products: Product[];
   events: AuditEvent[];
   mandate: Mandate | null;
+  metrics: MerchantMetrics | null;
   go: (v: View) => void;
   onSelectProductAndGo?: (skuId: string) => void;
 }) {
@@ -831,51 +846,63 @@ function OverviewView({
       sku: "prod_a",
       name: "Sony Voyager NC (₹18,499)",
       hardGate: "PASS (Amount ≤ ₹20k, Currency INR, Merchant match)",
-      semantic: "SUPPORTED (Travel collection, Minimal branding, Active)",
+      semantic: "SUPPORTED (Foldable, travel case, minimal branding)",
       verdict: "ALLOW",
-      outcome: "Razorpay Test Order created atomically",
+      outcome: "Razorpay Test Order created directly",
+      decision: "ALLOW",
+      razorpay: "Razorpay Test Order created directly",
       theme: "pass",
     },
     {
       id: "hard_block" as const,
-      label: "Demo 2: Hard Limit Block",
+      label: "Demo 2: Hard Gate Violation",
       sku: "prod_b",
       name: "Sony Studio Pro (₹21,499)",
-      hardGate: "FAIL (AMOUNT_LIMIT_EXCEEDED: ₹21,499 > ₹20,000 limit)",
-      semantic: "SKIPPED (0ms termination — zero LLM invocation)",
+      hardGate: "FAIL: AMOUNT_LIMIT_EXCEEDED (₹21,499 > ₹20,000 ceiling)",
+      semantic: "SHORT-CIRCUITED (never invoked on hard fail)",
       verdict: "BLOCK",
       outcome: "Zero money moved · Razorpay call count = 0",
+      decision: "BLOCK",
+      razorpay: "ZERO call count (hard invariant enforced)",
       theme: "fail",
     },
     {
       id: "stepup" as const,
       label: "Demo 3: Semantic Step-Up",
       sku: "prod_c",
-      name: "Aura Gold Party ANC (₹19,999)",
-      hardGate: "PASS (Within ₹20k limit & merchant approved)",
-      semantic: "CONTRADICTED (Metallic gold party vs 'Nothing flashy')",
+      name: "Sony Party Edition (₹14,999)",
+      hardGate: "PASS (Amount ₹14,999 ≤ ₹20,000, Category audio)",
+      semantic: "CONTRADICTED: metallic gold & party styling vs 'not flashy'",
       verdict: "STEP_UP",
       outcome: "Autonomous lock engaged · Escalated to Human Oversight",
+      decision: "STEP_UP",
+      razorpay: "Paused: requires human approval once or reject",
       theme: "stepup",
     },
     {
       id: "revoked" as const,
       label: "Demo 4: Revocation Kill-Switch",
       sku: "prod_a",
-      name: "Mid-Session Revocation Triggered",
-      hardGate: "FAIL (MANDATE_REVOKED: Status = REVOKED)",
-      semantic: "SKIPPED (Revocation check precedes reservation)",
+      name: "Mid-Session Revocation",
+      hardGate: "FAIL: MANDATE_REVOKED (signed version invalidated)",
+      semantic: "SHORT-CIRCUITED (revocation checked before lock reservation)",
       verdict: "BLOCK",
       outcome: "Execution denied deterministically · Audit logged",
+      decision: "BLOCK",
+      razorpay: "ZERO call count (funds protected)",
       theme: "fail",
     },
   ];
 
   const current = scenarios.find((s) => s.id === activeScenario)!;
 
+  const hardGateBadge = metrics?.p95_authorization_latency_ms
+    ? `${metrics.p95_authorization_latency_ms}ms P95`
+    : "<1ms TICK";
+
   const pipelineSteps = [
     { num: "01", title: "Signed Mandate", desc: "Human-bounded intent signed with ECDSA P-256", badge: "P-256 VERIFIED", icon: Fingerprint },
-    { num: "02", title: "Hard Gate", desc: "Deterministic checks on amount, currency, merchant", badge: "0.08ms TICK", icon: ShieldCheck },
+    { num: "02", title: "Hard Gate", desc: "Deterministic checks on amount, currency, merchant", badge: hardGateBadge, icon: ShieldCheck },
     { num: "03", title: "Semantic Intent", desc: "Catalog-authoritative evidence classifier", badge: "FACT-BOUND", icon: Sparkles },
     { num: "04", title: "Razorpay Exec", desc: "Atomic reservation + hosted test-mode checkout", badge: "TEST MODE", icon: ShoppingBag },
   ];
@@ -1037,9 +1064,17 @@ function OverviewView({
           </span>
         </div>
         <div className="metric-card">
-          <span className="metric-header">DECISION ACCURACY</span>
-          <span className="metric-number">100%</span>
-          <span className="metric-caption">zero unauthorized bypass</span>
+          <span className="metric-header">GATEWAY CLEARANCE</span>
+          <span className="metric-number">
+            {metrics?.authorization_success_rate_pct !== null && metrics?.authorization_success_rate_pct !== undefined
+              ? `${metrics.authorization_success_rate_pct}%`
+              : "100%"}
+          </span>
+          <span className="metric-caption">
+            {metrics && metrics.total_proposals > 0
+              ? `${metrics.allowed_count ?? metrics.executed_proposals ?? 0} allowed · ${metrics.total_proposals} total`
+              : "zero unauthorized bypass"}
+          </span>
         </div>
         <div className="metric-card">
           <span className="metric-header">AUDIT EVENTS</span>

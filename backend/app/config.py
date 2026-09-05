@@ -9,8 +9,8 @@ class Settings(BaseSettings):
     database_url: str = f"sqlite:///{(Path(__file__).resolve().parents[2] / 'janus.db').as_posix()}"
     seed_demo_catalog: bool = False
     frontend_url: str = "http://localhost:5173"
-    razorpay_key_id: str = "rzp_test_TYLX8xpOHRN4ur"
-    razorpay_key_secret: str = "82N6NFeF3IffDNTypchZYcP7"
+    razorpay_key_id: str = ""
+    razorpay_key_secret: str = ""
     razorpay_mode: str = "test"
     llm_api_key: str = ""
     gemini_api_key: str = ""
@@ -21,7 +21,7 @@ class Settings(BaseSettings):
     signing_private_key_pem: str = ""
     signing_public_key_pem: str = ""
     auth_required: bool = False
-    clerk_issuer_url: str = "https://deciding-redbird-5792.clerk.accounts.dev"
+    clerk_issuer_url: str = ""
     clerk_authorized_party: str = "http://localhost:5173"
     janus_agent_api_key: str = ""
 

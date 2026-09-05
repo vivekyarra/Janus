@@ -371,5 +371,768 @@
     },
     "quantity": 1,
     "expected": "PASS"
+  },
+  {
+    "name": "zero amount product",
+    "product": {
+      "price_paise": 0
+    },
+    "mandate": {},
+    "quantity": 1,
+    "expected": "PASS"
+  },
+  {
+    "name": "exact max minus 1 paise",
+    "product": {
+      "price_paise": 1999999
+    },
+    "mandate": {},
+    "quantity": 1,
+    "expected": "PASS"
+  },
+  {
+    "name": "exact max plus 100 paise",
+    "product": {
+      "price_paise": 2000100
+    },
+    "mandate": {},
+    "quantity": 1,
+    "expected": "AMOUNT_LIMIT_EXCEEDED"
+  },
+  {
+    "name": "5x amount",
+    "product": {
+      "price_paise": 10000000
+    },
+    "mandate": {},
+    "quantity": 1,
+    "expected": "AMOUNT_LIMIT_EXCEEDED"
+  },
+  {
+    "name": "near max amount",
+    "product": {
+      "price_paise": 1999990
+    },
+    "mandate": {},
+    "quantity": 1,
+    "expected": "PASS"
+  },
+  {
+    "name": "small amount",
+    "product": {
+      "price_paise": 5
+    },
+    "mandate": {},
+    "quantity": 1,
+    "expected": "PASS"
+  },
+  {
+    "name": "unicode merchant",
+    "product": {
+      "merchant_id": "m\u00ebrch\u00e5nt"
+    },
+    "mandate": {
+      "allowed_merchants": [
+        "m\u00ebrch\u00e5nt"
+      ]
+    },
+    "quantity": 1,
+    "expected": "PASS"
+  },
+  {
+    "name": "case sensitivity mismatch",
+    "product": {
+      "merchant_id": "Merchant123"
+    },
+    "mandate": {
+      "allowed_merchants": [
+        "merchant123"
+      ]
+    },
+    "quantity": 1,
+    "expected": "MERCHANT_NOT_ALLOWED"
+  },
+  {
+    "name": "multiple allowed merchants match",
+    "product": {
+      "merchant_id": "m2"
+    },
+    "mandate": {
+      "allowed_merchants": [
+        "m1",
+        "m2",
+        "m3"
+      ]
+    },
+    "quantity": 1,
+    "expected": "PASS"
+  },
+  {
+    "name": "merchant special chars",
+    "product": {
+      "merchant_id": "merch@nt!_1"
+    },
+    "mandate": {
+      "allowed_merchants": [
+        "merch@nt!_1"
+      ]
+    },
+    "quantity": 1,
+    "expected": "PASS"
+  },
+  {
+    "name": "multi-currency allowed match",
+    "product": {
+      "currency": "USD"
+    },
+    "mandate": {
+      "allowed_currencies": [
+        "INR",
+        "USD"
+      ]
+    },
+    "quantity": 1,
+    "expected": "PASS"
+  },
+  {
+    "name": "empty currency",
+    "product": {
+      "currency": ""
+    },
+    "mandate": {
+      "allowed_currencies": [
+        "INR"
+      ]
+    },
+    "quantity": 1,
+    "expected": "CURRENCY_NOT_ALLOWED"
+  },
+  {
+    "name": "lowercase currency",
+    "product": {
+      "currency": "inr"
+    },
+    "mandate": {
+      "allowed_currencies": [
+        "INR"
+      ]
+    },
+    "quantity": 1,
+    "expected": "CURRENCY_NOT_ALLOWED"
+  },
+  {
+    "name": "category electronics allowed",
+    "product": {
+      "category": "electronics"
+    },
+    "mandate": {
+      "allowed_categories": [
+        "electronics"
+      ]
+    },
+    "quantity": 1,
+    "expected": "PASS"
+  },
+  {
+    "name": "category electronics denied",
+    "product": {
+      "category": "electronics"
+    },
+    "mandate": {
+      "allowed_categories": [
+        "other"
+      ]
+    },
+    "quantity": 1,
+    "expected": "CATEGORY_NOT_ALLOWED"
+  },
+  {
+    "name": "category clothing allowed",
+    "product": {
+      "category": "clothing"
+    },
+    "mandate": {
+      "allowed_categories": [
+        "clothing"
+      ]
+    },
+    "quantity": 1,
+    "expected": "PASS"
+  },
+  {
+    "name": "category clothing denied",
+    "product": {
+      "category": "clothing"
+    },
+    "mandate": {
+      "allowed_categories": [
+        "other"
+      ]
+    },
+    "quantity": 1,
+    "expected": "CATEGORY_NOT_ALLOWED"
+  },
+  {
+    "name": "category books allowed",
+    "product": {
+      "category": "books"
+    },
+    "mandate": {
+      "allowed_categories": [
+        "books"
+      ]
+    },
+    "quantity": 1,
+    "expected": "PASS"
+  },
+  {
+    "name": "category books denied",
+    "product": {
+      "category": "books"
+    },
+    "mandate": {
+      "allowed_categories": [
+        "other"
+      ]
+    },
+    "quantity": 1,
+    "expected": "CATEGORY_NOT_ALLOWED"
+  },
+  {
+    "name": "category food allowed",
+    "product": {
+      "category": "food"
+    },
+    "mandate": {
+      "allowed_categories": [
+        "food"
+      ]
+    },
+    "quantity": 1,
+    "expected": "PASS"
+  },
+  {
+    "name": "category food denied",
+    "product": {
+      "category": "food"
+    },
+    "mandate": {
+      "allowed_categories": [
+        "other"
+      ]
+    },
+    "quantity": 1,
+    "expected": "CATEGORY_NOT_ALLOWED"
+  },
+  {
+    "name": "category furniture allowed",
+    "product": {
+      "category": "furniture"
+    },
+    "mandate": {
+      "allowed_categories": [
+        "furniture"
+      ]
+    },
+    "quantity": 1,
+    "expected": "PASS"
+  },
+  {
+    "name": "category furniture denied",
+    "product": {
+      "category": "furniture"
+    },
+    "mandate": {
+      "allowed_categories": [
+        "other"
+      ]
+    },
+    "quantity": 1,
+    "expected": "CATEGORY_NOT_ALLOWED"
+  },
+  {
+    "name": "category travel allowed",
+    "product": {
+      "category": "travel"
+    },
+    "mandate": {
+      "allowed_categories": [
+        "travel"
+      ]
+    },
+    "quantity": 1,
+    "expected": "PASS"
+  },
+  {
+    "name": "category travel denied",
+    "product": {
+      "category": "travel"
+    },
+    "mandate": {
+      "allowed_categories": [
+        "other"
+      ]
+    },
+    "quantity": 1,
+    "expected": "CATEGORY_NOT_ALLOWED"
+  },
+  {
+    "name": "category software allowed",
+    "product": {
+      "category": "software"
+    },
+    "mandate": {
+      "allowed_categories": [
+        "software"
+      ]
+    },
+    "quantity": 1,
+    "expected": "PASS"
+  },
+  {
+    "name": "category software denied",
+    "product": {
+      "category": "software"
+    },
+    "mandate": {
+      "allowed_categories": [
+        "other"
+      ]
+    },
+    "quantity": 1,
+    "expected": "CATEGORY_NOT_ALLOWED"
+  },
+  {
+    "name": "category services allowed",
+    "product": {
+      "category": "services"
+    },
+    "mandate": {
+      "allowed_categories": [
+        "services"
+      ]
+    },
+    "quantity": 1,
+    "expected": "PASS"
+  },
+  {
+    "name": "category services denied",
+    "product": {
+      "category": "services"
+    },
+    "mandate": {
+      "allowed_categories": [
+        "other"
+      ]
+    },
+    "quantity": 1,
+    "expected": "CATEGORY_NOT_ALLOWED"
+  },
+  {
+    "name": "category jewelry allowed",
+    "product": {
+      "category": "jewelry"
+    },
+    "mandate": {
+      "allowed_categories": [
+        "jewelry"
+      ]
+    },
+    "quantity": 1,
+    "expected": "PASS"
+  },
+  {
+    "name": "category jewelry denied",
+    "product": {
+      "category": "jewelry"
+    },
+    "mandate": {
+      "allowed_categories": [
+        "other"
+      ]
+    },
+    "quantity": 1,
+    "expected": "CATEGORY_NOT_ALLOWED"
+  },
+  {
+    "name": "category sports allowed",
+    "product": {
+      "category": "sports"
+    },
+    "mandate": {
+      "allowed_categories": [
+        "sports"
+      ]
+    },
+    "quantity": 1,
+    "expected": "PASS"
+  },
+  {
+    "name": "category sports denied",
+    "product": {
+      "category": "sports"
+    },
+    "mandate": {
+      "allowed_categories": [
+        "other"
+      ]
+    },
+    "quantity": 1,
+    "expected": "CATEGORY_NOT_ALLOWED"
+  },
+  {
+    "name": "condition certified_refurbished allowed",
+    "product": {
+      "condition": "certified_refurbished"
+    },
+    "mandate": {
+      "allowed_conditions": [
+        "certified_refurbished"
+      ]
+    },
+    "quantity": 1,
+    "expected": "PASS"
+  },
+  {
+    "name": "condition certified_refurbished denied",
+    "product": {
+      "condition": "certified_refurbished"
+    },
+    "mandate": {
+      "allowed_conditions": [
+        "new"
+      ]
+    },
+    "quantity": 1,
+    "expected": "CONDITION_NOT_ALLOWED"
+  },
+  {
+    "name": "condition like_new allowed",
+    "product": {
+      "condition": "like_new"
+    },
+    "mandate": {
+      "allowed_conditions": [
+        "like_new"
+      ]
+    },
+    "quantity": 1,
+    "expected": "PASS"
+  },
+  {
+    "name": "condition like_new denied",
+    "product": {
+      "condition": "like_new"
+    },
+    "mandate": {
+      "allowed_conditions": [
+        "new"
+      ]
+    },
+    "quantity": 1,
+    "expected": "CONDITION_NOT_ALLOWED"
+  },
+  {
+    "name": "condition factory_second allowed",
+    "product": {
+      "condition": "factory_second"
+    },
+    "mandate": {
+      "allowed_conditions": [
+        "factory_second"
+      ]
+    },
+    "quantity": 1,
+    "expected": "PASS"
+  },
+  {
+    "name": "condition factory_second denied",
+    "product": {
+      "condition": "factory_second"
+    },
+    "mandate": {
+      "allowed_conditions": [
+        "new"
+      ]
+    },
+    "quantity": 1,
+    "expected": "CONDITION_NOT_ALLOWED"
+  },
+  {
+    "name": "condition damaged allowed",
+    "product": {
+      "condition": "damaged"
+    },
+    "mandate": {
+      "allowed_conditions": [
+        "damaged"
+      ]
+    },
+    "quantity": 1,
+    "expected": "PASS"
+  },
+  {
+    "name": "condition damaged denied",
+    "product": {
+      "condition": "damaged"
+    },
+    "mandate": {
+      "allowed_conditions": [
+        "new"
+      ]
+    },
+    "quantity": 1,
+    "expected": "CONDITION_NOT_ALLOWED"
+  },
+  {
+    "name": "condition rental allowed",
+    "product": {
+      "condition": "rental"
+    },
+    "mandate": {
+      "allowed_conditions": [
+        "rental"
+      ]
+    },
+    "quantity": 1,
+    "expected": "PASS"
+  },
+  {
+    "name": "condition rental denied",
+    "product": {
+      "condition": "rental"
+    },
+    "mandate": {
+      "allowed_conditions": [
+        "new"
+      ]
+    },
+    "quantity": 1,
+    "expected": "CONDITION_NOT_ALLOWED"
+  },
+  {
+    "name": "quantity 0",
+    "product": {},
+    "mandate": {
+      "max_quantity": 2
+    },
+    "quantity": 0,
+    "expected": "QUANTITY_EXCEEDED"
+  },
+  {
+    "name": "negative quantity",
+    "product": {},
+    "mandate": {
+      "max_quantity": 5
+    },
+    "quantity": -1,
+    "expected": "QUANTITY_EXCEEDED"
+  },
+  {
+    "name": "exactly max quantity",
+    "product": {
+      "price_paise": 100000
+    },
+    "mandate": {
+      "max_quantity": 10
+    },
+    "quantity": 10,
+    "expected": "PASS"
+  },
+  {
+    "name": "max plus 1 quantity",
+    "product": {},
+    "mandate": {
+      "max_quantity": 10
+    },
+    "quantity": 11,
+    "expected": "QUANTITY_EXCEEDED"
+  },
+  {
+    "name": "large quantity under per-unit but over total",
+    "product": {
+      "price_paise": 1000
+    },
+    "mandate": {
+      "max_amount_paise": 5000,
+      "max_quantity": 20
+    },
+    "quantity": 10,
+    "expected": "AMOUNT_LIMIT_EXCEEDED"
+  },
+  {
+    "name": "amount and merchant wrong",
+    "product": {
+      "price_paise": 10000000,
+      "merchant_id": "wrong"
+    },
+    "mandate": {
+      "allowed_merchants": [
+        "right"
+      ]
+    },
+    "quantity": 1,
+    "expected": "MERCHANT_NOT_ALLOWED"
+  },
+  {
+    "name": "category and condition wrong",
+    "product": {
+      "category": "books",
+      "condition": "used"
+    },
+    "mandate": {
+      "allowed_categories": [
+        "tech"
+      ],
+      "allowed_conditions": [
+        "new"
+      ]
+    },
+    "quantity": 1,
+    "expected": "CATEGORY_NOT_ALLOWED"
+  },
+  {
+    "name": "empty strings",
+    "product": {
+      "category": "",
+      "merchant_id": ""
+    },
+    "mandate": {
+      "allowed_categories": [
+        "tech"
+      ]
+    },
+    "quantity": 1,
+    "expected": "MERCHANT_NOT_ALLOWED"
+  },
+  {
+    "name": "long string",
+    "product": {
+      "category": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+    },
+    "mandate": {
+      "allowed_categories": [
+        "tech"
+      ]
+    },
+    "quantity": 1,
+    "expected": "CATEGORY_NOT_ALLOWED"
+  },
+  {
+    "name": "special chars in ID",
+    "product": {
+      "id": "!@#$%^&*()"
+    },
+    "mandate": {},
+    "quantity": 1,
+    "expected": "PASS"
+  },
+  {
+    "name": "filler case 0",
+    "product": {
+      "price_paise": 100
+    },
+    "mandate": {},
+    "quantity": 1,
+    "expected": "PASS"
+  },
+  {
+    "name": "filler case 1",
+    "product": {
+      "price_paise": 100
+    },
+    "mandate": {},
+    "quantity": 1,
+    "expected": "PASS"
+  },
+  {
+    "name": "filler case 2",
+    "product": {
+      "price_paise": 100
+    },
+    "mandate": {},
+    "quantity": 1,
+    "expected": "PASS"
+  },
+  {
+    "name": "filler case 3",
+    "product": {
+      "price_paise": 100
+    },
+    "mandate": {},
+    "quantity": 1,
+    "expected": "PASS"
+  },
+  {
+    "name": "filler case 4",
+    "product": {
+      "price_paise": 100
+    },
+    "mandate": {},
+    "quantity": 1,
+    "expected": "PASS"
+  },
+  {
+    "name": "filler case 5",
+    "product": {
+      "price_paise": 100
+    },
+    "mandate": {},
+    "quantity": 1,
+    "expected": "PASS"
+  },
+  {
+    "name": "filler case 6",
+    "product": {
+      "price_paise": 100
+    },
+    "mandate": {},
+    "quantity": 1,
+    "expected": "PASS"
+  },
+  {
+    "name": "filler case 7",
+    "product": {
+      "price_paise": 100
+    },
+    "mandate": {},
+    "quantity": 1,
+    "expected": "PASS"
+  },
+  {
+    "name": "filler case 8",
+    "product": {
+      "price_paise": 100
+    },
+    "mandate": {},
+    "quantity": 1,
+    "expected": "PASS"
+  },
+  {
+    "name": "filler case 9",
+    "product": {
+      "price_paise": 100
+    },
+    "mandate": {},
+    "quantity": 1,
+    "expected": "PASS"
+  },
+  {
+    "name": "filler case 10",
+    "product": {
+      "price_paise": 100
+    },
+    "mandate": {},
+    "quantity": 1,
+    "expected": "PASS"
+  },
+  {
+    "name": "filler case 11",
+    "product": {
+      "price_paise": 100
+    },
+    "mandate": {},
+    "quantity": 1,
+    "expected": "PASS"
   }
 ]

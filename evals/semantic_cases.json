@@ -577,5 +577,1251 @@
       "fields": []
     },
     "expected": "STEP_UP"
+  },
+  {
+    "name": "portable case",
+    "instruction": "Portable design",
+    "constraint": {
+      "id": "portable",
+      "text": "portable design"
+    },
+    "evidence": {
+      "weight_g": 100
+    },
+    "model": {
+      "status": "SUPPORTED",
+      "fields": [
+        "weight_g"
+      ]
+    },
+    "expected": "ALLOW"
+  },
+  {
+    "name": "portable contradiction",
+    "instruction": "Portable design",
+    "constraint": {
+      "id": "portable",
+      "text": "portable design"
+    },
+    "evidence": {
+      "wrong": "value"
+    },
+    "model": {
+      "status": "CONTRADICTED",
+      "fields": [
+        "wrong"
+      ]
+    },
+    "expected": "STEP_UP"
+  },
+  {
+    "name": "lightweight case",
+    "instruction": "Lightweight",
+    "constraint": {
+      "id": "lightweight",
+      "text": "lightweight"
+    },
+    "evidence": {
+      "weight_g": 50
+    },
+    "model": {
+      "status": "SUPPORTED",
+      "fields": [
+        "weight_g"
+      ]
+    },
+    "expected": "ALLOW"
+  },
+  {
+    "name": "lightweight contradiction",
+    "instruction": "Lightweight",
+    "constraint": {
+      "id": "lightweight",
+      "text": "lightweight"
+    },
+    "evidence": {
+      "wrong": "value"
+    },
+    "model": {
+      "status": "CONTRADICTED",
+      "fields": [
+        "wrong"
+      ]
+    },
+    "expected": "STEP_UP"
+  },
+  {
+    "name": "durable case",
+    "instruction": "Durable build",
+    "constraint": {
+      "id": "durable",
+      "text": "durable build"
+    },
+    "evidence": {
+      "material": "kevlar"
+    },
+    "model": {
+      "status": "SUPPORTED",
+      "fields": [
+        "material"
+      ]
+    },
+    "expected": "ALLOW"
+  },
+  {
+    "name": "durable contradiction",
+    "instruction": "Durable build",
+    "constraint": {
+      "id": "durable",
+      "text": "durable build"
+    },
+    "evidence": {
+      "wrong": "value"
+    },
+    "model": {
+      "status": "CONTRADICTED",
+      "fields": [
+        "wrong"
+      ]
+    },
+    "expected": "STEP_UP"
+  },
+  {
+    "name": "waterproof case",
+    "instruction": "Waterproof",
+    "constraint": {
+      "id": "waterproof",
+      "text": "waterproof"
+    },
+    "evidence": {
+      "ip_rating": "ip68"
+    },
+    "model": {
+      "status": "SUPPORTED",
+      "fields": [
+        "ip_rating"
+      ]
+    },
+    "expected": "ALLOW"
+  },
+  {
+    "name": "waterproof contradiction",
+    "instruction": "Waterproof",
+    "constraint": {
+      "id": "waterproof",
+      "text": "waterproof"
+    },
+    "evidence": {
+      "wrong": "value"
+    },
+    "model": {
+      "status": "CONTRADICTED",
+      "fields": [
+        "wrong"
+      ]
+    },
+    "expected": "STEP_UP"
+  },
+  {
+    "name": "compact case",
+    "instruction": "Compact size",
+    "constraint": {
+      "id": "compact",
+      "text": "compact size"
+    },
+    "evidence": {
+      "dimensions": "small"
+    },
+    "model": {
+      "status": "SUPPORTED",
+      "fields": [
+        "dimensions"
+      ]
+    },
+    "expected": "ALLOW"
+  },
+  {
+    "name": "compact contradiction",
+    "instruction": "Compact size",
+    "constraint": {
+      "id": "compact",
+      "text": "compact size"
+    },
+    "evidence": {
+      "wrong": "value"
+    },
+    "model": {
+      "status": "CONTRADICTED",
+      "fields": [
+        "wrong"
+      ]
+    },
+    "expected": "STEP_UP"
+  },
+  {
+    "name": "minimal case",
+    "instruction": "Minimalist design",
+    "constraint": {
+      "id": "minimal",
+      "text": "minimalist design"
+    },
+    "evidence": {
+      "design": "clean"
+    },
+    "model": {
+      "status": "SUPPORTED",
+      "fields": [
+        "design"
+      ]
+    },
+    "expected": "ALLOW"
+  },
+  {
+    "name": "minimal contradiction",
+    "instruction": "Minimalist design",
+    "constraint": {
+      "id": "minimal",
+      "text": "minimalist design"
+    },
+    "evidence": {
+      "wrong": "value"
+    },
+    "model": {
+      "status": "CONTRADICTED",
+      "fields": [
+        "wrong"
+      ]
+    },
+    "expected": "STEP_UP"
+  },
+  {
+    "name": "professional case",
+    "instruction": "Professional look",
+    "constraint": {
+      "id": "professional",
+      "text": "professional look"
+    },
+    "evidence": {
+      "color": "black",
+      "style": "office"
+    },
+    "model": {
+      "status": "SUPPORTED",
+      "fields": [
+        "color",
+        "style"
+      ]
+    },
+    "expected": "ALLOW"
+  },
+  {
+    "name": "professional contradiction",
+    "instruction": "Professional look",
+    "constraint": {
+      "id": "professional",
+      "text": "professional look"
+    },
+    "evidence": {
+      "wrong": "value"
+    },
+    "model": {
+      "status": "CONTRADICTED",
+      "fields": [
+        "wrong"
+      ]
+    },
+    "expected": "STEP_UP"
+  },
+  {
+    "name": "casual case",
+    "instruction": "Casual wear",
+    "constraint": {
+      "id": "casual",
+      "text": "casual wear"
+    },
+    "evidence": {
+      "style": "everyday"
+    },
+    "model": {
+      "status": "SUPPORTED",
+      "fields": [
+        "style"
+      ]
+    },
+    "expected": "ALLOW"
+  },
+  {
+    "name": "casual contradiction",
+    "instruction": "Casual wear",
+    "constraint": {
+      "id": "casual",
+      "text": "casual wear"
+    },
+    "evidence": {
+      "wrong": "value"
+    },
+    "model": {
+      "status": "CONTRADICTED",
+      "fields": [
+        "wrong"
+      ]
+    },
+    "expected": "STEP_UP"
+  },
+  {
+    "name": "sporty case",
+    "instruction": "Sporty",
+    "constraint": {
+      "id": "sporty",
+      "text": "sporty"
+    },
+    "evidence": {
+      "type": "athletic"
+    },
+    "model": {
+      "status": "SUPPORTED",
+      "fields": [
+        "type"
+      ]
+    },
+    "expected": "ALLOW"
+  },
+  {
+    "name": "sporty contradiction",
+    "instruction": "Sporty",
+    "constraint": {
+      "id": "sporty",
+      "text": "sporty"
+    },
+    "evidence": {
+      "wrong": "value"
+    },
+    "model": {
+      "status": "CONTRADICTED",
+      "fields": [
+        "wrong"
+      ]
+    },
+    "expected": "STEP_UP"
+  },
+  {
+    "name": "elegant case",
+    "instruction": "Elegant",
+    "constraint": {
+      "id": "elegant",
+      "text": "elegant"
+    },
+    "evidence": {
+      "design": "premium"
+    },
+    "model": {
+      "status": "SUPPORTED",
+      "fields": [
+        "design"
+      ]
+    },
+    "expected": "ALLOW"
+  },
+  {
+    "name": "elegant contradiction",
+    "instruction": "Elegant",
+    "constraint": {
+      "id": "elegant",
+      "text": "elegant"
+    },
+    "evidence": {
+      "wrong": "value"
+    },
+    "model": {
+      "status": "CONTRADICTED",
+      "fields": [
+        "wrong"
+      ]
+    },
+    "expected": "STEP_UP"
+  },
+  {
+    "name": "modern case",
+    "instruction": "Modern",
+    "constraint": {
+      "id": "modern",
+      "text": "modern"
+    },
+    "evidence": {
+      "style": "contemporary"
+    },
+    "model": {
+      "status": "SUPPORTED",
+      "fields": [
+        "style"
+      ]
+    },
+    "expected": "ALLOW"
+  },
+  {
+    "name": "modern contradiction",
+    "instruction": "Modern",
+    "constraint": {
+      "id": "modern",
+      "text": "modern"
+    },
+    "evidence": {
+      "wrong": "value"
+    },
+    "model": {
+      "status": "CONTRADICTED",
+      "fields": [
+        "wrong"
+      ]
+    },
+    "expected": "STEP_UP"
+  },
+  {
+    "name": "vintage case",
+    "instruction": "Vintage",
+    "constraint": {
+      "id": "vintage",
+      "text": "vintage"
+    },
+    "evidence": {
+      "style": "retro"
+    },
+    "model": {
+      "status": "SUPPORTED",
+      "fields": [
+        "style"
+      ]
+    },
+    "expected": "ALLOW"
+  },
+  {
+    "name": "vintage contradiction",
+    "instruction": "Vintage",
+    "constraint": {
+      "id": "vintage",
+      "text": "vintage"
+    },
+    "evidence": {
+      "wrong": "value"
+    },
+    "model": {
+      "status": "CONTRADICTED",
+      "fields": [
+        "wrong"
+      ]
+    },
+    "expected": "STEP_UP"
+  },
+  {
+    "name": "understated case",
+    "instruction": "Understated",
+    "constraint": {
+      "id": "understated",
+      "text": "understated"
+    },
+    "evidence": {
+      "logo": "subtle"
+    },
+    "model": {
+      "status": "SUPPORTED",
+      "fields": [
+        "logo"
+      ]
+    },
+    "expected": "ALLOW"
+  },
+  {
+    "name": "understated contradiction",
+    "instruction": "Understated",
+    "constraint": {
+      "id": "understated",
+      "text": "understated"
+    },
+    "evidence": {
+      "wrong": "value"
+    },
+    "model": {
+      "status": "CONTRADICTED",
+      "fields": [
+        "wrong"
+      ]
+    },
+    "expected": "STEP_UP"
+  },
+  {
+    "name": "leather case",
+    "instruction": "Genuine leather",
+    "constraint": {
+      "id": "leather",
+      "text": "genuine leather"
+    },
+    "evidence": {
+      "material": "leather"
+    },
+    "model": {
+      "status": "SUPPORTED",
+      "fields": [
+        "material"
+      ]
+    },
+    "expected": "ALLOW"
+  },
+  {
+    "name": "leather contradiction",
+    "instruction": "Genuine leather",
+    "constraint": {
+      "id": "leather",
+      "text": "genuine leather"
+    },
+    "evidence": {
+      "wrong": "value"
+    },
+    "model": {
+      "status": "CONTRADICTED",
+      "fields": [
+        "wrong"
+      ]
+    },
+    "expected": "STEP_UP"
+  },
+  {
+    "name": "metal case",
+    "instruction": "Metal body",
+    "constraint": {
+      "id": "metal",
+      "text": "metal body"
+    },
+    "evidence": {
+      "body": "aluminum"
+    },
+    "model": {
+      "status": "SUPPORTED",
+      "fields": [
+        "body"
+      ]
+    },
+    "expected": "ALLOW"
+  },
+  {
+    "name": "metal contradiction",
+    "instruction": "Metal body",
+    "constraint": {
+      "id": "metal",
+      "text": "metal body"
+    },
+    "evidence": {
+      "wrong": "value"
+    },
+    "model": {
+      "status": "CONTRADICTED",
+      "fields": [
+        "wrong"
+      ]
+    },
+    "expected": "STEP_UP"
+  },
+  {
+    "name": "plastic case",
+    "instruction": "Plastic construction",
+    "constraint": {
+      "id": "plastic",
+      "text": "plastic construction"
+    },
+    "evidence": {
+      "material": "plastic"
+    },
+    "model": {
+      "status": "SUPPORTED",
+      "fields": [
+        "material"
+      ]
+    },
+    "expected": "ALLOW"
+  },
+  {
+    "name": "plastic contradiction",
+    "instruction": "Plastic construction",
+    "constraint": {
+      "id": "plastic",
+      "text": "plastic construction"
+    },
+    "evidence": {
+      "wrong": "value"
+    },
+    "model": {
+      "status": "CONTRADICTED",
+      "fields": [
+        "wrong"
+      ]
+    },
+    "expected": "STEP_UP"
+  },
+  {
+    "name": "sustainable case",
+    "instruction": "Sustainable",
+    "constraint": {
+      "id": "sustainable",
+      "text": "sustainable"
+    },
+    "evidence": {
+      "eco_friendly": true
+    },
+    "model": {
+      "status": "SUPPORTED",
+      "fields": [
+        "eco_friendly"
+      ]
+    },
+    "expected": "ALLOW"
+  },
+  {
+    "name": "sustainable contradiction",
+    "instruction": "Sustainable",
+    "constraint": {
+      "id": "sustainable",
+      "text": "sustainable"
+    },
+    "evidence": {
+      "wrong": "value"
+    },
+    "model": {
+      "status": "CONTRADICTED",
+      "fields": [
+        "wrong"
+      ]
+    },
+    "expected": "STEP_UP"
+  },
+  {
+    "name": "organic case",
+    "instruction": "Organic",
+    "constraint": {
+      "id": "organic",
+      "text": "organic"
+    },
+    "evidence": {
+      "certified_organic": true
+    },
+    "model": {
+      "status": "SUPPORTED",
+      "fields": [
+        "certified_organic"
+      ]
+    },
+    "expected": "ALLOW"
+  },
+  {
+    "name": "organic contradiction",
+    "instruction": "Organic",
+    "constraint": {
+      "id": "organic",
+      "text": "organic"
+    },
+    "evidence": {
+      "wrong": "value"
+    },
+    "model": {
+      "status": "CONTRADICTED",
+      "fields": [
+        "wrong"
+      ]
+    },
+    "expected": "STEP_UP"
+  },
+  {
+    "name": "recycled case",
+    "instruction": "Recycled materials",
+    "constraint": {
+      "id": "recycled",
+      "text": "recycled materials"
+    },
+    "evidence": {
+      "recycled_content": "80%"
+    },
+    "model": {
+      "status": "SUPPORTED",
+      "fields": [
+        "recycled_content"
+      ]
+    },
+    "expected": "ALLOW"
+  },
+  {
+    "name": "recycled contradiction",
+    "instruction": "Recycled materials",
+    "constraint": {
+      "id": "recycled",
+      "text": "recycled materials"
+    },
+    "evidence": {
+      "wrong": "value"
+    },
+    "model": {
+      "status": "CONTRADICTED",
+      "fields": [
+        "wrong"
+      ]
+    },
+    "expected": "STEP_UP"
+  },
+  {
+    "name": "fast case",
+    "instruction": "Fast performance",
+    "constraint": {
+      "id": "fast",
+      "text": "fast performance"
+    },
+    "evidence": {
+      "speed": "high"
+    },
+    "model": {
+      "status": "SUPPORTED",
+      "fields": [
+        "speed"
+      ]
+    },
+    "expected": "ALLOW"
+  },
+  {
+    "name": "fast contradiction",
+    "instruction": "Fast performance",
+    "constraint": {
+      "id": "fast",
+      "text": "fast performance"
+    },
+    "evidence": {
+      "wrong": "value"
+    },
+    "model": {
+      "status": "CONTRADICTED",
+      "fields": [
+        "wrong"
+      ]
+    },
+    "expected": "STEP_UP"
+  },
+  {
+    "name": "powerful case",
+    "instruction": "Powerful",
+    "constraint": {
+      "id": "powerful",
+      "text": "powerful"
+    },
+    "evidence": {
+      "power": "high"
+    },
+    "model": {
+      "status": "SUPPORTED",
+      "fields": [
+        "power"
+      ]
+    },
+    "expected": "ALLOW"
+  },
+  {
+    "name": "powerful contradiction",
+    "instruction": "Powerful",
+    "constraint": {
+      "id": "powerful",
+      "text": "powerful"
+    },
+    "evidence": {
+      "wrong": "value"
+    },
+    "model": {
+      "status": "CONTRADICTED",
+      "fields": [
+        "wrong"
+      ]
+    },
+    "expected": "STEP_UP"
+  },
+  {
+    "name": "quiet case",
+    "instruction": "Quiet operation",
+    "constraint": {
+      "id": "quiet",
+      "text": "quiet operation"
+    },
+    "evidence": {
+      "noise_level": "low"
+    },
+    "model": {
+      "status": "SUPPORTED",
+      "fields": [
+        "noise_level"
+      ]
+    },
+    "expected": "ALLOW"
+  },
+  {
+    "name": "quiet contradiction",
+    "instruction": "Quiet operation",
+    "constraint": {
+      "id": "quiet",
+      "text": "quiet operation"
+    },
+    "evidence": {
+      "wrong": "value"
+    },
+    "model": {
+      "status": "CONTRADICTED",
+      "fields": [
+        "wrong"
+      ]
+    },
+    "expected": "STEP_UP"
+  },
+  {
+    "name": "efficient case",
+    "instruction": "Energy efficient",
+    "constraint": {
+      "id": "efficient",
+      "text": "energy efficient"
+    },
+    "evidence": {
+      "rating": "A++"
+    },
+    "model": {
+      "status": "SUPPORTED",
+      "fields": [
+        "rating"
+      ]
+    },
+    "expected": "ALLOW"
+  },
+  {
+    "name": "efficient contradiction",
+    "instruction": "Energy efficient",
+    "constraint": {
+      "id": "efficient",
+      "text": "energy efficient"
+    },
+    "evidence": {
+      "wrong": "value"
+    },
+    "model": {
+      "status": "CONTRADICTED",
+      "fields": [
+        "wrong"
+      ]
+    },
+    "expected": "STEP_UP"
+  },
+  {
+    "name": "high-resolution case",
+    "instruction": "High res",
+    "constraint": {
+      "id": "high-resolution",
+      "text": "high res"
+    },
+    "evidence": {
+      "resolution": "4k"
+    },
+    "model": {
+      "status": "SUPPORTED",
+      "fields": [
+        "resolution"
+      ]
+    },
+    "expected": "ALLOW"
+  },
+  {
+    "name": "high-resolution contradiction",
+    "instruction": "High res",
+    "constraint": {
+      "id": "high-resolution",
+      "text": "high res"
+    },
+    "evidence": {
+      "wrong": "value"
+    },
+    "model": {
+      "status": "CONTRADICTED",
+      "fields": [
+        "wrong"
+      ]
+    },
+    "expected": "STEP_UP"
+  },
+  {
+    "name": "office case",
+    "instruction": "For office",
+    "constraint": {
+      "id": "office",
+      "text": "for office"
+    },
+    "evidence": {
+      "suitable_for": "office"
+    },
+    "model": {
+      "status": "SUPPORTED",
+      "fields": [
+        "suitable_for"
+      ]
+    },
+    "expected": "ALLOW"
+  },
+  {
+    "name": "office contradiction",
+    "instruction": "For office",
+    "constraint": {
+      "id": "office",
+      "text": "for office"
+    },
+    "evidence": {
+      "wrong": "value"
+    },
+    "model": {
+      "status": "CONTRADICTED",
+      "fields": [
+        "wrong"
+      ]
+    },
+    "expected": "STEP_UP"
+  },
+  {
+    "name": "outdoor case",
+    "instruction": "For outdoors",
+    "constraint": {
+      "id": "outdoor",
+      "text": "for outdoors"
+    },
+    "evidence": {
+      "suitable_for": "outdoors"
+    },
+    "model": {
+      "status": "SUPPORTED",
+      "fields": [
+        "suitable_for"
+      ]
+    },
+    "expected": "ALLOW"
+  },
+  {
+    "name": "outdoor contradiction",
+    "instruction": "For outdoors",
+    "constraint": {
+      "id": "outdoor",
+      "text": "for outdoors"
+    },
+    "evidence": {
+      "wrong": "value"
+    },
+    "model": {
+      "status": "CONTRADICTED",
+      "fields": [
+        "wrong"
+      ]
+    },
+    "expected": "STEP_UP"
+  },
+  {
+    "name": "gaming case",
+    "instruction": "For gaming",
+    "constraint": {
+      "id": "gaming",
+      "text": "for gaming"
+    },
+    "evidence": {
+      "latency": "low",
+      "rgb": true
+    },
+    "model": {
+      "status": "SUPPORTED",
+      "fields": [
+        "latency",
+        "rgb"
+      ]
+    },
+    "expected": "ALLOW"
+  },
+  {
+    "name": "gaming contradiction",
+    "instruction": "For gaming",
+    "constraint": {
+      "id": "gaming",
+      "text": "for gaming"
+    },
+    "evidence": {
+      "wrong": "value"
+    },
+    "model": {
+      "status": "CONTRADICTED",
+      "fields": [
+        "wrong"
+      ]
+    },
+    "expected": "STEP_UP"
+  },
+  {
+    "name": "cooking case",
+    "instruction": "For cooking",
+    "constraint": {
+      "id": "cooking",
+      "text": "for cooking"
+    },
+    "evidence": {
+      "safe": "food_grade"
+    },
+    "model": {
+      "status": "SUPPORTED",
+      "fields": [
+        "safe"
+      ]
+    },
+    "expected": "ALLOW"
+  },
+  {
+    "name": "cooking contradiction",
+    "instruction": "For cooking",
+    "constraint": {
+      "id": "cooking",
+      "text": "for cooking"
+    },
+    "evidence": {
+      "wrong": "value"
+    },
+    "model": {
+      "status": "CONTRADICTED",
+      "fields": [
+        "wrong"
+      ]
+    },
+    "expected": "STEP_UP"
+  },
+  {
+    "name": "exercise case",
+    "instruction": "For exercise",
+    "constraint": {
+      "id": "exercise",
+      "text": "for exercise"
+    },
+    "evidence": {
+      "sweat_resistant": true
+    },
+    "model": {
+      "status": "SUPPORTED",
+      "fields": [
+        "sweat_resistant"
+      ]
+    },
+    "expected": "ALLOW"
+  },
+  {
+    "name": "exercise contradiction",
+    "instruction": "For exercise",
+    "constraint": {
+      "id": "exercise",
+      "text": "for exercise"
+    },
+    "evidence": {
+      "wrong": "value"
+    },
+    "model": {
+      "status": "CONTRADICTED",
+      "fields": [
+        "wrong"
+      ]
+    },
+    "expected": "STEP_UP"
+  },
+  {
+    "name": "reading case",
+    "instruction": "For reading",
+    "constraint": {
+      "id": "reading",
+      "text": "for reading"
+    },
+    "evidence": {
+      "display": "e-ink"
+    },
+    "model": {
+      "status": "SUPPORTED",
+      "fields": [
+        "display"
+      ]
+    },
+    "expected": "ALLOW"
+  },
+  {
+    "name": "reading contradiction",
+    "instruction": "For reading",
+    "constraint": {
+      "id": "reading",
+      "text": "for reading"
+    },
+    "evidence": {
+      "wrong": "value"
+    },
+    "model": {
+      "status": "CONTRADICTED",
+      "fields": [
+        "wrong"
+      ]
+    },
+    "expected": "STEP_UP"
+  },
+  {
+    "name": "commute case",
+    "instruction": "For commuting",
+    "constraint": {
+      "id": "commute",
+      "text": "for commuting"
+    },
+    "evidence": {
+      "noise_cancelling": true
+    },
+    "model": {
+      "status": "SUPPORTED",
+      "fields": [
+        "noise_cancelling"
+      ]
+    },
+    "expected": "ALLOW"
+  },
+  {
+    "name": "commute contradiction",
+    "instruction": "For commuting",
+    "constraint": {
+      "id": "commute",
+      "text": "for commuting"
+    },
+    "evidence": {
+      "wrong": "value"
+    },
+    "model": {
+      "status": "CONTRADICTED",
+      "fields": [
+        "wrong"
+      ]
+    },
+    "expected": "STEP_UP"
+  },
+  {
+    "name": "budget case",
+    "instruction": "Budget friendly",
+    "constraint": {
+      "id": "budget",
+      "text": "budget friendly"
+    },
+    "evidence": {
+      "price_tier": "low"
+    },
+    "model": {
+      "status": "SUPPORTED",
+      "fields": [
+        "price_tier"
+      ]
+    },
+    "expected": "ALLOW"
+  },
+  {
+    "name": "budget contradiction",
+    "instruction": "Budget friendly",
+    "constraint": {
+      "id": "budget",
+      "text": "budget friendly"
+    },
+    "evidence": {
+      "wrong": "value"
+    },
+    "model": {
+      "status": "CONTRADICTED",
+      "fields": [
+        "wrong"
+      ]
+    },
+    "expected": "STEP_UP"
+  },
+  {
+    "name": "premium case",
+    "instruction": "Premium quality",
+    "constraint": {
+      "id": "premium",
+      "text": "premium quality"
+    },
+    "evidence": {
+      "price_tier": "high"
+    },
+    "model": {
+      "status": "SUPPORTED",
+      "fields": [
+        "price_tier"
+      ]
+    },
+    "expected": "ALLOW"
+  },
+  {
+    "name": "premium contradiction",
+    "instruction": "Premium quality",
+    "constraint": {
+      "id": "premium",
+      "text": "premium quality"
+    },
+    "evidence": {
+      "wrong": "value"
+    },
+    "model": {
+      "status": "CONTRADICTED",
+      "fields": [
+        "wrong"
+      ]
+    },
+    "expected": "STEP_UP"
+  },
+  {
+    "name": "luxury case",
+    "instruction": "Luxury",
+    "constraint": {
+      "id": "luxury",
+      "text": "luxury"
+    },
+    "evidence": {
+      "brand_tier": "luxury"
+    },
+    "model": {
+      "status": "SUPPORTED",
+      "fields": [
+        "brand_tier"
+      ]
+    },
+    "expected": "ALLOW"
+  },
+  {
+    "name": "luxury contradiction",
+    "instruction": "Luxury",
+    "constraint": {
+      "id": "luxury",
+      "text": "luxury"
+    },
+    "evidence": {
+      "wrong": "value"
+    },
+    "model": {
+      "status": "CONTRADICTED",
+      "fields": [
+        "wrong"
+      ]
+    },
+    "expected": "STEP_UP"
+  },
+  {
+    "name": "value-for-money case",
+    "instruction": "Value",
+    "constraint": {
+      "id": "value-for-money",
+      "text": "value"
+    },
+    "evidence": {
+      "value_rating": "high"
+    },
+    "model": {
+      "status": "SUPPORTED",
+      "fields": [
+        "value_rating"
+      ]
+    },
+    "expected": "ALLOW"
   }
 ]

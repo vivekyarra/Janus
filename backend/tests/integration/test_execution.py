@@ -47,7 +47,7 @@ def test_valid_proposal_invokes_razorpay_once_and_audits(db) -> None:
     order = ExecutionService(db, adapter).execute(proposal.id)
     assert order["id"] == "order_test_001"
     assert len(adapter.calls) == 1
-    assert db.get(CheckoutProposal, proposal.id).status == "EXECUTED"
+    assert db.get(CheckoutProposal, proposal.id).status in {"ORDER_CREATED", "EXECUTED"}
     assert db.get(Mandate, mandate.id).status == "CONSUMED"
     assert {event.event_type for event in db.query(AuditEvent)} >= {"EXECUTION_RESERVED", "RAZORPAY_ORDER_CREATED"}
 
@@ -75,14 +75,18 @@ def test_duplicate_execution_returns_same_order(db) -> None:
 
 
 def test_razorpay_failure_fails_closed_and_is_audited(db) -> None:
-    _, proposal = allowed_proposal(db)
+    mandate, proposal = allowed_proposal(db)
     adapter = FakeRazorpay(fail=True)
     with pytest.raises(RazorpayOrderCreationFailed):
         ExecutionService(db, adapter).execute(proposal.id)
     assert len(adapter.calls) == 1
     assert db.get(CheckoutProposal, proposal.id).status == "FAILED"
+    # Verify our critical fix: execution reservation rolled back so mandate slot is not burned
+    assert db.get(Mandate, mandate.id).execution_count == 0
+    assert db.get(Mandate, mandate.id).status == "ACTIVE"
     event = db.query(AuditEvent).filter_by(event_type="EXECUTION_BLOCKED").one()
     assert event.payload["outcome"] == "failed_closed"
+    assert event.payload.get("execution_count_rolled_back") is True
 
 
 def test_revoked_mandate_blocks_execution_before_adapter(db) -> None:

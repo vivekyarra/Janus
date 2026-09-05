@@ -22,14 +22,38 @@ from app.services.semantic_scorer import assess_semantic_constraints
 from app.services.stepup_service import create_step_up
 
 
+# Maps semantic outcome to a sortable rank: lower is better
+_SEMANTIC_RANK = {"SUPPORTED": 0, "INSUFFICIENT_EVIDENCE": 1, "CONTRADICTED": 2}
+
+
+def _worst_semantic_status(results: list[dict]) -> str:
+    """Return the worst semantic status across all constraint results."""
+    worst = "SUPPORTED"
+    for r in results:
+        status = r.get("status", "INSUFFICIENT_EVIDENCE")
+        if _SEMANTIC_RANK.get(status, 1) > _SEMANTIC_RANK.get(worst, 0):
+            worst = status
+    return worst
+
+
 class AutonomousBuyerAgent:
+    """Six-stage autonomous shopping agent.
+
+    Stage 1: Mandate ingestion — extract hard bounds and semantic constraints.
+    Stage 2: Catalog scan — retrieve merchant products (strict isolation).
+    Stage 3: Hard filtering — deterministic pre-filter against signed constraints.
+    Stage 4: Semantic evaluation — LLM-based assessment of EVERY eligible candidate.
+    Stage 5: Gateway dispatch — formal proposal through decision engine.
+    Stage 6: Execution — atomic Razorpay order creation or step-up escalation.
+    """
+
     def __init__(self, db: Session, semantic_model: SemanticModelPort, razorpay: RazorpayPort, actor: Actor) -> None:
         self.db = db
         self.semantic_model = semantic_model
         self.razorpay = razorpay
         self.actor = actor
 
-    def run(self, mandate_id: str, merchant_id: str = "northstar_audio", auto_execute: bool = True) -> AutonomousShopResponse:
+    def run(self, mandate_id: str, merchant_id: str, auto_execute: bool = True) -> AutonomousShopResponse:
         steps: list[AgentStep] = []
         mandate = self.db.get(Mandate, mandate_id)
         if not mandate:
@@ -43,37 +67,30 @@ class AutonomousBuyerAgent:
         allowed_categories = set(hard_bounds.get("allowed_categories", []))
         allowed_conditions = set(hard_bounds.get("allowed_conditions", ["new"]))
 
-        # Step 1: Contract extraction
+        # Stage 1: Contract extraction
         instruction = mandate.instruction_text or ""
         steps.append(
             AgentStep(
                 step_num=1,
                 title="Human Mandate Ingestion",
                 detail=(
-                    f"Parsed human delegation '{instruction[:60]}...'. "
+                    f"Parsed human delegation '{instruction[:60]}…'. "
                     f"Hard ceiling: ₹{max_amount_paise/100:,.2f} {list(allowed_currencies)[0]}. "
                     f"Authorized categories: {list(allowed_categories)}."
                 ),
             )
         )
 
-        # Step 2: Catalog Scan
-        query = select(Product).where(Product.active.is_(True))
-        if merchant_id:
-            merchant_products = list(self.db.scalars(query.where(Product.merchant_id == merchant_id)))
-            if merchant_products:
-                products = merchant_products
-            else:
-                products = list(self.db.scalars(query))
-        else:
-            products = list(self.db.scalars(query))
+        # Stage 2: Catalog Scan — strict merchant isolation, no cross-tenant fallback
+        query = select(Product).where(Product.active.is_(True), Product.merchant_id == merchant_id)
+        products = list(self.db.scalars(query))
 
         if not products:
             steps.append(
                 AgentStep(
                     step_num=2,
                     title="Catalog Scan Failed",
-                    detail="No active products found in merchant catalog.",
+                    detail=f"No active products found for merchant '{merchant_id}'.",
                     status="FAILED",
                 )
             )
@@ -96,68 +113,24 @@ class AutonomousBuyerAgent:
             AgentStep(
                 step_num=2,
                 title="Autonomous Catalog Scan",
-                detail=f"Retrieved {len(products)} active SKUs from merchant '{merchant_id}'. Verified machine-readable catalog schema.",
+                detail=f"Retrieved {len(products)} active SKUs from merchant '{merchant_id}'. Strict tenant isolation enforced.",
             )
         )
 
-        # Step 3: Candidate Scoring & Pre-filtering
+        # Stage 3: Deterministic hard-filter every SKU
         evaluations: list[CandidateEvaluation] = []
-        eligible_candidates: list[tuple[Product, float, str]] = []
-
-        instr_lower = instruction.lower()
-        semantic_texts = [c.get("text", "").lower() for c in (mandate.semantic_constraints or [])]
-        combined_intent = instr_lower + " " + " ".join(semantic_texts)
+        eligible_candidates: list[Product] = []
 
         for prod in products:
             rejection = None
             if prod.price_paise > max_amount_paise:
-                rejection = f"Exceeds max budget (₹{prod.price_paise/100:,.2f} > ₹{max_amount_paise/100:,.2f})"
+                rejection = f"Exceeds budget (₹{prod.price_paise/100:,.2f} > ₹{max_amount_paise/100:,.2f})"
             elif prod.currency not in allowed_currencies:
                 rejection = f"Currency {prod.currency} not allowed"
             elif allowed_categories and prod.category not in allowed_categories:
                 rejection = f"Category '{prod.category}' not permitted"
             elif prod.condition not in allowed_conditions:
                 rejection = f"Condition '{prod.condition}' not permitted"
-
-            attrs = prod.attributes or {}
-            score = 0.5  # Baseline score
-            notes = []
-
-            # Scoring based on intent keywords & attributes
-            if "travel" in combined_intent or "flight" in combined_intent:
-                if attrs.get("foldable") is True:
-                    score += 0.25
-                    notes.append("Foldable (+)")
-                elif attrs.get("foldable") is False:
-                    score -= 0.3
-                    notes.append("Rigid non-foldable (-)")
-                if attrs.get("travel_case") is True:
-                    score += 0.2
-                    notes.append("Travel case (+)")
-                if attrs.get("weight_g", 0) > 400:
-                    score -= 0.2
-                    notes.append("Heavy weight (-)")
-
-            if "noise" in combined_intent or "cancelling" in combined_intent or "quiet" in combined_intent:
-                if attrs.get("noise_cancelling") is True:
-                    score += 0.3
-                    notes.append("Active ANC (+)")
-                else:
-                    score -= 0.2
-                    notes.append("Lacks ANC (-)")
-
-            if "flashy" in combined_intent or "minimal" in combined_intent:
-                color = str(attrs.get("color", "")).lower()
-                branding = str(attrs.get("branding", "")).lower()
-                if "gold" in color or "metallic" in color or "oversized" in branding:
-                    score -= 0.5
-                    notes.append("Loud/flashy styling (--)")
-                if "minimal" in branding or "discreet" in branding:
-                    score += 0.25
-                    notes.append("Minimal branding (+)")
-
-            score = max(0.0, min(1.0, score))
-            notes_str = ", ".join(notes) if notes else "Standard catalog fit"
 
             evaluations.append(
                 CandidateEvaluation(
@@ -166,32 +139,33 @@ class AutonomousBuyerAgent:
                     price_paise=prod.price_paise,
                     hard_eligible=rejection is None,
                     rejection_reason=rejection,
-                    semantic_score=round(score, 2),
-                    semantic_notes=notes_str,
+                    semantic_score=None,
+                    semantic_notes="Pending semantic evaluation" if rejection is None else "Skipped (hard-ineligible)",
                 )
             )
 
             if rejection is None:
-                eligible_candidates.append((prod, score, notes_str))
+                eligible_candidates.append(prod)
 
         steps.append(
             AgentStep(
                 step_num=3,
-                title="Multi-Candidate Intent Alignment",
+                title="Deterministic Hard Filtering",
                 detail=(
-                    f"Evaluated {len(products)} SKUs: {len(eligible_candidates)} passed deterministic hard constraints, "
+                    f"Evaluated {len(products)} SKUs against signed constraints: "
+                    f"{len(eligible_candidates)} passed, "
                     f"{len(products) - len(eligible_candidates)} eliminated on monetary/category boundaries."
                 ),
             )
         )
 
-        # Step 4: Candidate Selection
+        # Stage 4: Semantic evaluation of EVERY eligible candidate using real LLM
         if not eligible_candidates:
             steps.append(
                 AgentStep(
                     step_num=4,
                     title="Autonomous Boundary Protection",
-                    detail="All available merchant SKUs violate human spending limits. Agent halts safely to protect funds.",
+                    detail="All merchant SKUs violate human spending limits. Agent halts safely.",
                     status="FAILED",
                 )
             )
@@ -210,25 +184,59 @@ class AutonomousBuyerAgent:
                 status="BLOCKED",
             )
 
-        # Sort by score descending, then price ascending
-        eligible_candidates.sort(key=lambda item: (-item[1], item[0].price_paise))
-        best_product, best_score, best_notes = eligible_candidates[0]
+        semantic_constraints = mandate.semantic_constraints or []
+        ranked: list[tuple[Product, str, str]] = []  # (product, worst_status, summary)
 
-        reasoning = (
-            f"Autonomously selected '{best_product.name}' (SKU: {best_product.id}) at ₹{best_product.price_paise/100:,.2f}. "
-            f"Satisfies hard budget ceiling (₹{max_amount_paise/100:,.2f}). "
-            f"Intent score {best_score:.2f} based on merchant facts: {best_notes}."
-        )
+        for prod in eligible_candidates:
+            if semantic_constraints:
+                assessment = assess_semantic_constraints(
+                    mandate.instruction_text, semantic_constraints, prod.attributes or {}, self.semantic_model
+                )
+                results_dicts = [r.model_dump(mode="json") for r in assessment.results]
+                worst = _worst_semantic_status(results_dicts)
+                reasons = [f"{r.constraint_id}: {r.status} ({r.reason[:80]})" for r in assessment.results]
+                summary = "; ".join(reasons) if reasons else "No constraints evaluated"
+            else:
+                worst = "SUPPORTED"
+                summary = "No semantic constraints — auto-supported"
 
+            ranked.append((prod, worst, summary))
+
+            # Update the evaluation entry with real semantic results
+            for ev in evaluations:
+                if ev.product_id == prod.id:
+                    ev.semantic_score = round(1.0 - _SEMANTIC_RANK.get(worst, 1) * 0.5, 2)
+                    ev.semantic_notes = summary
+                    break
+
+        # Sort: SUPPORTED first, then INSUFFICIENT_EVIDENCE, then CONTRADICTED.
+        # Within same tier, prefer lower price (best value for human).
+        ranked.sort(key=lambda item: (_SEMANTIC_RANK.get(item[1], 1), item[0].price_paise))
+        best_product, best_status, best_summary = ranked[0]
+
+        semantic_detail_lines = [
+            f"  • {prod.name} ({prod.id}): {status} — {summary[:100]}"
+            for prod, status, summary in ranked
+        ]
         steps.append(
             AgentStep(
                 step_num=4,
-                title="Optimal SKU Selection",
-                detail=reasoning,
+                title="LLM Semantic Evaluation (All Candidates)",
+                detail=(
+                    f"Ran real semantic assessment on {len(eligible_candidates)} eligible candidates:\n"
+                    + "\n".join(semantic_detail_lines)
+                    + f"\nBest match: '{best_product.name}' ({best_status})."
+                ),
             )
         )
 
-        # Step 5: Proposal Construction & Gateway Dispatch
+        reasoning = (
+            f"Selected '{best_product.name}' (SKU: {best_product.id}) at ₹{best_product.price_paise/100:,.2f}. "
+            f"Satisfies hard budget ceiling (₹{max_amount_paise/100:,.2f}). "
+            f"Semantic outcome: {best_status}. {best_summary[:120]}."
+        )
+
+        # Stage 5: Proposal Construction & Gateway Dispatch
         agent_req_id = f"agent_autobuyer_{uuid.uuid4().hex[:12]}"
         proposal = CheckoutProposal(
             mandate_id=mandate.id,
@@ -256,10 +264,12 @@ class AutonomousBuyerAgent:
                 "catalog_amount_paise": proposal.expected_amount_paise,
                 "autonomous_agent": True,
                 "actor_subject": self.actor.subject,
+                "candidates_evaluated": len(products),
+                "candidates_eligible": len(eligible_candidates),
             },
         )
 
-        # Hard Gate evaluation
+        # Hard gate (formal re-evaluation for the selected product)
         hard = evaluate_hard_constraints(mandate, best_product, 1, agent_req_id, datetime.now(timezone.utc))
         if hard.status == "FAIL":
             proposal.status = "BLOCKED"
@@ -291,8 +301,8 @@ class AutonomousBuyerAgent:
                 status="BLOCKED",
             )
 
-        # Semantic Scorer evaluation
-        semantic = assess_semantic_constraints(mandate.instruction_text, mandate.semantic_constraints, best_product.attributes, self.semantic_model)
+        # Semantic assessment through formal gateway path
+        semantic = assess_semantic_constraints(mandate.instruction_text, semantic_constraints, best_product.attributes or {}, self.semantic_model)
         write_audit(self.db, "SEMANTIC_ASSESSMENT_COMPLETED", "proposal", proposal.id, semantic.model_dump(mode="json"))
 
         decision = decide(hard, semantic)
@@ -313,12 +323,12 @@ class AutonomousBuyerAgent:
         steps.append(
             AgentStep(
                 step_num=5,
-                title="Gateway Intent Clearance",
-                detail=f"Deterministic hard gate PASSED. Semantic classification: {decision.decision.value} ({decision.reason_code.value}).",
+                title="Gateway Authorization",
+                detail=f"Hard gate PASSED. Semantic: {decision.decision.value} ({decision.reason_code.value}).",
             )
         )
 
-        # Step 6: Atomic Execution Settlement
+        # Stage 6: Atomic Execution & Order Creation
         razorpay_order_id = None
         if decision.decision == DecisionType.ALLOW and auto_execute:
             order = ExecutionService(self.db, self.razorpay).execute(proposal.id)
@@ -326,8 +336,8 @@ class AutonomousBuyerAgent:
             steps.append(
                 AgentStep(
                     step_num=6,
-                    title="Autonomous Razorpay Settlement",
-                    detail=f"Atomic execution reservation secured. Real Razorpay Test Order {razorpay_order_id} created for ₹{best_product.price_paise/100:,.2f}.",
+                    title="Razorpay Order Created",
+                    detail=f"Execution reservation secured. Razorpay test-mode order {razorpay_order_id} created for ₹{best_product.price_paise/100:,.2f}.",
                 )
             )
         elif decision.decision == DecisionType.STEP_UP:
@@ -335,7 +345,7 @@ class AutonomousBuyerAgent:
                 AgentStep(
                     step_num=6,
                     title="Human Oversight Escalation",
-                    detail=f"Semantic ambiguity or contradiction detected. Dispatched single-use exception request to Human Console (ID: {decision.step_up_id}).",
+                    detail=f"Semantic ambiguity detected. Step-up dispatched (ID: {decision.step_up_id}).",
                 )
             )
         else:

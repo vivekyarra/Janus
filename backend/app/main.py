@@ -21,7 +21,7 @@ from app.repositories.catalog import seed_catalog
 async def lifespan(_: FastAPI):
     validate_production_settings(settings)
     if settings.app_env == "production":
-        config = Config(str(Path(__file__).resolve().parents[3] / "alembic.ini"))
+        config = Config(str(Path(__file__).resolve().parents[2] / "alembic.ini"))
         expected = ScriptDirectory.from_config(config).get_current_head()
         with engine.connect() as connection:
             actual = MigrationContext.configure(connection).get_current_revision()

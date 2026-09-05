@@ -102,7 +102,7 @@ class CandidateEvaluation(BaseModel):
     price_paise: int
     hard_eligible: bool
     rejection_reason: str | None = None
-    semantic_score: float = 0.0
+    semantic_score: float | None = None
     semantic_notes: str | None = None
 
 
@@ -143,13 +143,26 @@ class AutonomousShopResponse(BaseModel):
 class MerchantMetricsResponse(BaseModel):
     merchant_id: str
     catalog_sku_count: int
-    machine_readability_score: float
+    machine_readability_score: float | None = None
     total_proposals: int
     allowed_count: int
     stepup_count: int
     blocked_count: int
-    conversion_rate_pct: float
+    conversion_rate_pct: float | None = None
     autonomous_gmv_paise: int
     blocked_overspend_paise: int
-    p95_authorization_latency_ms: float
+    p95_authorization_latency_ms: float | None = None
+    p50_authorization_latency_ms: float | None = None
+    authorization_success_rate_pct: float | None = None
+    step_up_rate_pct: float | None = None
+    semantic_rejection_rate_pct: float | None = None
+    payment_success_rate_pct: float | None = None
+    duplicate_prevention_count: int = 0
+    # Field aliases for frontend UI compatibility:
+    total_skus: int | None = None
+    active_skus: int | None = None
+    machine_readable_pct: float | None = None
+    prevented_overspend_paise: int | None = None
+    executed_proposals: int | None = None
+    blocked_proposals: int | None = None
 

@@ -20,7 +20,9 @@ class ProposalStatus(StrEnum):
     STEP_UP = "STEP_UP"
     ALLOWED = "ALLOWED"
     EXECUTING = "EXECUTING"
-    EXECUTED = "EXECUTED"
+    ORDER_CREATED = "ORDER_CREATED"
+    EXECUTED = "EXECUTED"  # legacy alias for ORDER_CREATED
+    PAID = "PAID"
     FAILED = "FAILED"
 
 

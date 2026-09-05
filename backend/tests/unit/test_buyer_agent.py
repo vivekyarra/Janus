@@ -100,7 +100,7 @@ def test_autonomous_buyer_agent_selects_optimal_product_and_executes(db):
 
     response = agent.run(mandate_id=mandate.id, merchant_id="merchant_demo", auto_execute=True)
 
-    assert response.status == "EXECUTED" or response.status == "ALLOWED"
+    assert response.status in {"ORDER_CREATED", "EXECUTED", "ALLOWED"}
     assert response.decision == "ALLOW"
     assert response.selected_product_id == "prod_a"  # Sony Voyager NC ₹18,499
     assert response.razorpay_order_id is not None
@@ -110,7 +110,7 @@ def test_autonomous_buyer_agent_selects_optimal_product_and_executes(db):
     # Check that Sony Studio Pro (₹21,499) was rejected for exceeding budget
     studio_eval = next(c for c in response.candidates_evaluated if c.product_id == "prod_b")
     assert studio_eval.hard_eligible is False
-    assert "Exceeds max budget" in studio_eval.rejection_reason
+    assert "Exceeds budget" in studio_eval.rejection_reason
 
 
 def test_autonomous_buyer_agent_halts_safely_when_no_product_eligible(db):
@@ -146,4 +146,4 @@ def test_autonomous_buyer_agent_halts_safely_when_no_product_eligible(db):
     assert response.decision == "BLOCK"
     assert response.selected_product_id is None
     assert response.razorpay_order_id is None
-    assert any("All available merchant SKUs violate human spending limits" in s.detail for s in response.steps)
+    assert any("violate human spending limits" in s.detail for s in response.steps)
