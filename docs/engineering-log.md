@@ -57,3 +57,11 @@ This log records failures encountered during the real build. It is intentionally
 - **Invariant affected:** Reproducible, resource-conscious packaging; authorization behavior was unaffected.
 - **Fix:** Cancelled the build and added a narrow `.dockerignore` for dependencies, caches, local databases, secrets, and generated output.
 - **Regression check:** Rebuilt from the reduced context and verified the packaged HTTP health and console against PostgreSQL.
+
+## 2026-09-05 — First credentialed Razorpay attempt failed closed
+
+- **Symptom:** The signed mandate passed and the proposal reached `ALLOW`, but execution returned `RAZORPAY_ORDER_CREATION_FAILED` before any provider request.
+- **Root cause:** A PowerShell safety wrapper cast a character array to the literal text `System.Char[]` instead of joining its characters, so the process received malformed environment variables.
+- **Invariant affected:** External execution availability; no unauthorized order was possible and the failed reservation remained consumed by design.
+- **Fix:** Corrected the process-only environment construction, verified only credential lengths and the `rzp_test_` prefix, then reset the demo state before retrying.
+- **Regression check:** The clean retry created `order_TYLalcYGCbqDbY`; an independent Razorpay API read-back confirmed its amount, currency, receipt, and `created` status.
