@@ -48,6 +48,7 @@ class Mandate(Base):
     execution_count: Mapped[int] = mapped_column(Integer, default=0)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
     revoked_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    created_by_subject: Mapped[str | None] = mapped_column(String(80), nullable=True, index=True)
     proposals: Mapped[list["CheckoutProposal"]] = relationship(back_populates="mandate")
 
 
@@ -68,6 +69,9 @@ class CheckoutProposal(Base):
     execution_error: Mapped[str | None] = mapped_column(String(200), nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
     executed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    razorpay_payment_id: Mapped[str | None] = mapped_column(String(100), nullable=True, unique=True)
+    payment_status: Mapped[str | None] = mapped_column(String(30), nullable=True)
+    paid_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     mandate: Mapped[Mandate] = relationship(back_populates="proposals")
     step_up: Mapped["StepUpRequest | None"] = relationship(back_populates="proposal", uselist=False)
 
@@ -93,4 +97,3 @@ class AuditEvent(Base):
     entity_id: Mapped[str] = mapped_column(String(80), index=True)
     payload: Mapped[dict] = mapped_column(JSON)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow, index=True)
-

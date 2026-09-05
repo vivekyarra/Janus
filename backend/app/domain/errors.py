@@ -21,3 +21,7 @@ class RazorpayOrderCreationFailed(JanusError):
     reason_code = "RAZORPAY_ORDER_CREATION_FAILED"
     status_code = 502
 
+
+class PaymentVerificationFailed(JanusError):
+    reason_code = "RAZORPAY_PAYMENT_VERIFICATION_FAILED"
+    status_code = 400

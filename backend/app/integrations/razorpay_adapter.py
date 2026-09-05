@@ -8,6 +8,7 @@ from app.domain.errors import RazorpayOrderCreationFailed
 
 class RazorpayPort(Protocol):
     def create_order(self, *, amount: int, currency: str, receipt: str, notes: dict[str, str]) -> dict[str, Any]: ...
+    def fetch_payment(self, payment_id: str) -> dict[str, Any]: ...
 
 
 class RazorpayAdapter:
@@ -20,6 +21,10 @@ class RazorpayAdapter:
         self.key_secret = settings.razorpay_key_secret
         if settings.razorpay_mode != "test":
             raise ValueError("JANUS v1 permits Razorpay test mode only")
+
+    @property
+    def public_key_id(self) -> str:
+        return self.key_id
 
     def create_order(self, *, amount: int, currency: str, receipt: str, notes: dict[str, str]) -> dict[str, Any]:
         if not self.key_id.startswith("rzp_test_") or not self.key_secret:
@@ -39,3 +44,15 @@ class RazorpayAdapter:
         except (httpx.HTTPError, ValueError) as exc:
             raise RazorpayOrderCreationFailed("Razorpay order creation failed closed") from exc
 
+    def fetch_payment(self, payment_id: str) -> dict[str, Any]:
+        if not self.key_id.startswith("rzp_test_") or not self.key_secret:
+            raise RazorpayOrderCreationFailed("Razorpay test credentials are not configured")
+        try:
+            response = httpx.get(f"https://api.razorpay.com/v1/payments/{payment_id}", auth=(self.key_id, self.key_secret), timeout=15)
+            response.raise_for_status()
+            payment = response.json()
+            if payment.get("id") != payment_id:
+                raise ValueError("Razorpay returned a different payment")
+            return payment
+        except (httpx.HTTPError, ValueError) as exc:
+            raise RazorpayOrderCreationFailed("Razorpay payment lookup failed closed") from exc

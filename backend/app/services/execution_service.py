@@ -20,8 +20,9 @@ class ExecutionService:
         proposal = self.db.scalar(select(CheckoutProposal).where(CheckoutProposal.id == proposal_id).with_for_update())
         if proposal is None:
             raise AuthorizationDenied("Proposal not found")
-        if proposal.status == "EXECUTED":
-            return {"id": proposal.razorpay_order_id, "status": "created", "idempotent_replay": True}
+        if proposal.status in {"EXECUTED", "PAID"}:
+            product = self.db.get(Product, proposal.product_id)
+            return {"id": proposal.razorpay_order_id, "status": "created", "idempotent_replay": True, "key_id": getattr(self.razorpay, "public_key_id", None), "amount": proposal.expected_amount_paise, "currency": proposal.currency, "product_name": product.name if product else None}
         allowed_states = {"ALLOWED"} | ({"STEP_UP"} if approved_step_up else set())
         if proposal.status not in allowed_states:
             raise AuthorizationDenied(f"Proposal state {proposal.status} cannot execute")
@@ -61,5 +62,4 @@ class ExecutionService:
         proposal.executed_at = datetime.now(timezone.utc)
         write_audit(self.db, "RAZORPAY_ORDER_CREATED", "proposal", proposal.id, {"razorpay_order_id": order["id"], "amount": proposal.expected_amount_paise, "currency": proposal.currency, "razorpay_called": True})
         self.db.commit()
-        return order
-
+        return {**order, "key_id": getattr(self.razorpay, "public_key_id", None), "amount": proposal.expected_amount_paise, "currency": proposal.currency, "product_name": product.name}

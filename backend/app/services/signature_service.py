@@ -11,6 +11,7 @@ from cryptography.hazmat.primitives.asymmetric import ec
 
 SIGNED_FIELDS = (
     "id",
+    "created_by_subject",
     "instruction_text",
     "hard_constraints",
     "semantic_constraints",
@@ -35,7 +36,7 @@ def _normalize(value: Any) -> Any:
 def canonical_mandate_payload(source: Any) -> dict[str, Any]:
     def read(field: str) -> Any:
         if isinstance(source, dict):
-            return source[field]
+            return source.get(field)
         if field == "version" and hasattr(source, "signed_version"):
             return source.signed_version
         return getattr(source, field)

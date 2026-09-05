@@ -65,3 +65,11 @@ This log records failures encountered during the real build. It is intentionally
 - **Invariant affected:** External execution availability; no unauthorized order was possible and the failed reservation remained consumed by design.
 - **Fix:** Corrected the process-only environment construction, verified only credential lengths and the `rzp_test_` prefix, then reset the demo state before retrying.
 - **Regression check:** The clean retry created `order_TYLalcYGCbqDbY`; an independent Razorpay API read-back confirmed its amount, currency, receipt, and `created` status.
+
+## 2026-09-05 — Development SQLite schema missing newly mapped identity columns
+
+- **Symptom:** `POST /api/v1/mandates` returned HTTP 500 with `table mandates has no column named created_by_subject`.
+- **Root cause:** SQLAlchemy's `create_all()` does not alter existing SQLite tables created before new columns (`created_by_subject`, `razorpay_payment_id`, `payment_status`, `paid_at`) were mapped in `models.py`.
+- **Invariant affected:** Mandate creation availability; audit and authorization were blocked.
+- **Fix:** Migrated the local SQLite database schema by adding the missing nullable columns, matching the PostgreSQL Alembic migration contracts.
+- **Regression check:** Ran automated live verification (`verify_live.py`) covering all 4 demo beats; all endpoints returned expected structured decisions.

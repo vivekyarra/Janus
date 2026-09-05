@@ -1,0 +1,21 @@
+[
+  {
+    "id": "northstar-transit-anc",
+    "merchant_id": "northstar_audio",
+    "name": "Transit ANC",
+    "price_paise": 1849900,
+    "currency": "INR",
+    "category": "headphones",
+    "condition": "new",
+    "active": true,
+    "attributes": {
+      "noise_cancelling": true,
+      "weight_g": 254,
+      "foldable": true,
+      "travel_case": true,
+      "color": "black",
+      "branding": "minimal",
+      "collection": "travel"
+    }
+  }
+]

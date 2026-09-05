@@ -76,6 +76,20 @@ class SemanticConstraint(BaseModel):
     text: str = Field(min_length=1, max_length=300)
 
 
+class CatalogProductInput(BaseModel):
+    model_config = ConfigDict(extra="forbid", str_strip_whitespace=True)
+
+    id: str = Field(min_length=3, max_length=80, pattern=r"^[A-Za-z0-9][A-Za-z0-9._:-]+$")
+    merchant_id: str = Field(min_length=3, max_length=80, pattern=r"^[A-Za-z0-9][A-Za-z0-9._:-]+$")
+    name: str = Field(min_length=2, max_length=200)
+    price_paise: int = Field(gt=0)
+    currency: str = Field(min_length=3, max_length=3, pattern=r"^[A-Z]{3}$")
+    category: str = Field(min_length=2, max_length=80)
+    condition: str = Field(default="new", min_length=2, max_length=40)
+    active: bool = True
+    attributes: dict[str, Any] = Field(default_factory=dict)
+
+
 class UnresolvedField(BaseModel):
     field: str
     reason: str
@@ -103,6 +117,7 @@ class MandateRead(BaseModel):
     public_key: str
     created_at: datetime
     revoked_at: datetime | None
+    created_by_subject: str | None
 
 
 class ProductRead(BaseModel):
@@ -158,4 +173,3 @@ class FinalDecision(BaseModel):
     proposal_id: str | None = None
     step_up_id: str | None = None
     razorpay_called: bool = False
-

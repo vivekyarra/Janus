@@ -38,4 +38,4 @@ def test_core_entities_persist(db) -> None:
     db.commit()
     assert db.get(Mandate, mandate.id).status == "ACTIVE"
     assert db.get(CheckoutProposal, proposal.id).step_up.id == step_up.id
-    assert db.query(AuditEvent).one().event_type == "PROPOSAL_RECEIVED"
+    assert db.query(AuditEvent).filter(AuditEvent.event_type == "PROPOSAL_RECEIVED").one().event_type == "PROPOSAL_RECEIVED"

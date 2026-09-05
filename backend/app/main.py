@@ -5,9 +5,12 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from sqlalchemy import text
+from alembic.migration import MigrationContext
+from alembic.config import Config
+from alembic.script import ScriptDirectory
 
 from app.api import audit, catalog, mandates, proposals, stepups
-from app.config import get_settings
+from app.config import get_settings, validate_production_settings
 from app.db import models  # noqa: F401
 from app.db.session import Base, SessionLocal, engine
 from app.db.models import Product
@@ -16,7 +19,16 @@ from app.repositories.catalog import seed_catalog
 
 @asynccontextmanager
 async def lifespan(_: FastAPI):
-    Base.metadata.create_all(engine)
+    validate_production_settings(settings)
+    if settings.app_env == "production":
+        config = Config(str(Path(__file__).resolve().parents[3] / "alembic.ini"))
+        expected = ScriptDirectory.from_config(config).get_current_head()
+        with engine.connect() as connection:
+            actual = MigrationContext.configure(connection).get_current_revision()
+        if actual != expected:
+            raise RuntimeError(f"Database migration required: expected {expected}, found {actual or 'none'}")
+    else:
+        Base.metadata.create_all(engine)
     if settings.seed_demo_catalog:
         with SessionLocal() as db:
             if db.query(Product).count() == 0:

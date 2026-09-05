@@ -10,16 +10,16 @@
     "preview": "vite preview"
   },
   "dependencies": {
+    "@clerk/react": "^6.15.1",
     "@vitejs/plugin-react": "latest",
-    "vite": "latest",
-    "typescript": "latest",
+    "lucide-react": "latest",
     "react": "latest",
     "react-dom": "latest",
-    "lucide-react": "latest"
+    "typescript": "latest",
+    "vite": "latest"
   },
   "devDependencies": {
     "@types/react": "latest",
     "@types/react-dom": "latest"
   }
 }
-
