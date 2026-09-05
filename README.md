@@ -1,5 +1,7 @@
 # JANUS
 
+[![JANUS safety gate](https://github.com/vivekyarra/Janus/actions/workflows/ci.yml/badge.svg)](https://github.com/vivekyarra/Janus/actions/workflows/ci.yml)
+
 > A merchant-side authorization gateway for AI buyers: exact authority is deterministic, fuzzy intent is evidence-bound, uncertainty returns to the human, and only an authorized proposal can reach Razorpay.
 
 JANUS is a Track 01 — AI Growth & Agentic Commerce project for the Razorpay AI Buildathon. It closes the trust gap between an autonomous buyer saying “I followed the human’s instructions” and a merchant independently proving that claim before creating an order.
