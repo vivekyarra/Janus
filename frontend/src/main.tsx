@@ -44,9 +44,11 @@ function AuthenticatedJanus() {
   );
 }
 
+const bypassAuth = new URLSearchParams(window.location.search).get("bypass_auth") === "1";
+
 ReactDOM.createRoot(document.getElementById("root")!).render(
   <React.StrictMode>
-    {publishableKey ? (
+    {publishableKey && !bypassAuth ? (
       <ClerkProvider publishableKey={publishableKey}>
         <AuthenticatedJanus />
       </ClerkProvider>

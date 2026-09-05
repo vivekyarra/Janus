@@ -612,19 +612,21 @@ code, pre {
 .split-deck {
   display: grid;
   grid-template-columns: 1fr 1fr;
-  gap: 14px;
-  flex: 1;
-  min-height: 0;
+  gap: 16px;
+  margin-top: 6px;
+  margin-bottom: 20px;
+  flex-shrink: 0;
 }
 .deck-panel {
   background: #ffffff;
   border: 1px solid var(--border-line);
   border-radius: 16px;
-  padding: 20px;
+  padding: 22px;
   display: flex;
   flex-direction: column;
+  justify-content: space-between;
   box-shadow: var(--shadow-sm);
-  min-height: 0;
+  min-height: 240px;
 }
 .panel-header {
   display: flex;
@@ -673,13 +675,14 @@ code, pre {
   color: var(--ink);
   border: 1px solid var(--border-line);
   border-radius: 16px;
-  padding: 24px;
+  padding: 22px;
   display: flex;
   flex-direction: column;
   justify-content: space-between;
   box-shadow: var(--shadow-card);
   position: relative;
   overflow: hidden;
+  min-height: 240px;
 }
 .hero-action-tile::before {
   content: '';

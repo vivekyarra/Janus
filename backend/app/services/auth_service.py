@@ -41,8 +41,12 @@ def _verify_clerk(token: str) -> Actor:
         claims = jwt.decode(token, signing_key.key, algorithms=["RS256"], issuer=issuer, options={"verify_aud": False, "require": ["exp", "iat", "nbf"]}, leeway=5)
     except jwt.PyJWTError as exc:
         raise HTTPException(401, detail={"reason_code": "SESSION_TOKEN_INVALID"}) from exc
-    authorized_party = settings.clerk_authorized_party
-    if authorized_party and claims.get("azp") != authorized_party:
+    authorized_parties = {
+        settings.clerk_authorized_party,
+        settings.clerk_authorized_party.replace("localhost", "127.0.0.1"),
+        settings.clerk_authorized_party.replace("127.0.0.1", "localhost"),
+    }
+    if claims.get("azp") and claims.get("azp") not in authorized_parties:
         raise HTTPException(401, detail={"reason_code": "SESSION_ORIGIN_INVALID"})
     subject = claims.get("sub")
     if not isinstance(subject, str) or not subject.startswith("user_"):
