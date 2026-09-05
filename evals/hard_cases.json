@@ -1,0 +1,14 @@
+[
+  {"name":"exact maximum","product":{},"mandate":{},"quantity":1,"expected":"PASS"},
+  {"name":"one paise over","product":{"price_paise":2000001},"mandate":{},"quantity":1,"expected":"AMOUNT_LIMIT_EXCEEDED"},
+  {"name":"wrong merchant","product":{"merchant_id":"merchant_other"},"mandate":{},"quantity":1,"expected":"MERCHANT_NOT_ALLOWED"},
+  {"name":"wrong currency","product":{"currency":"USD"},"mandate":{},"quantity":1,"expected":"CURRENCY_NOT_ALLOWED"},
+  {"name":"wrong category","product":{"category":"speakers"},"mandate":{},"quantity":1,"expected":"CATEGORY_NOT_ALLOWED"},
+  {"name":"refurbished","product":{"condition":"refurbished"},"mandate":{},"quantity":1,"expected":"CONDITION_NOT_ALLOWED"},
+  {"name":"quantity overflow","product":{"price_paise":900000},"mandate":{},"quantity":2,"expected":"QUANTITY_EXCEEDED"},
+  {"name":"revoked","product":{},"mandate":{"status":"REVOKED"},"quantity":1,"expected":"MANDATE_REVOKED"},
+  {"name":"consumed","product":{},"mandate":{"status":"CONSUMED"},"quantity":1,"expected":"MANDATE_CONSUMED"},
+  {"name":"execution exhausted","product":{},"mandate":{"execution_count":1},"quantity":1,"expected":"EXECUTION_LIMIT_EXCEEDED"},
+  {"name":"stale version","product":{},"mandate":{"version":2},"quantity":1,"expected":"MANDATE_VERSION_STALE"},
+  {"name":"duplicate request","product":{},"mandate":{},"quantity":1,"idempotency_unused":false,"expected":"DUPLICATE_REQUEST"}
+]

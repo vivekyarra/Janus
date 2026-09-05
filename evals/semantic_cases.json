@@ -1,0 +1,10 @@
+[
+  {"name":"travel supported","instruction":"Good for travel","constraint":{"id":"travel","text":"good for travel"},"evidence":{"foldable":true,"travel_case":true},"model":{"status":"SUPPORTED","fields":["foldable","travel_case"]},"expected":"ALLOW"},
+  {"name":"flashy contradicted","instruction":"Nothing flashy","constraint":{"id":"not_flashy","text":"nothing flashy"},"evidence":{"color":"metallic gold","branding":"oversized"},"model":{"status":"CONTRADICTED","fields":["color","branding"]},"expected":"STEP_UP"},
+  {"name":"travel evidence missing","instruction":"Good for travel","constraint":{"id":"travel","text":"good for travel"},"evidence":{"noise_cancelling":true},"model":{"status":"INSUFFICIENT_EVIDENCE","fields":[]},"expected":"STEP_UP"},
+  {"name":"unsupported evidence citation","instruction":"Minimal","constraint":{"id":"minimal","text":"minimal"},"evidence":{"color":"black"},"model":{"status":"SUPPORTED","fields":["branding"]},"expected":"STEP_UP"},
+  {"name":"unsupported empty support","instruction":"Comfortable","constraint":{"id":"comfortable","text":"comfortable"},"evidence":{"weight_g":250},"model":{"status":"SUPPORTED","fields":[]},"expected":"STEP_UP"},
+  {"name":"explicit minimal support","instruction":"Minimal","constraint":{"id":"minimal","text":"minimal"},"evidence":{"branding":"minimal"},"model":{"status":"SUPPORTED","fields":["branding"]},"expected":"ALLOW"},
+  {"name":"explicit heavy contradiction","instruction":"Good for travel","constraint":{"id":"travel","text":"good for travel"},"evidence":{"weight_g":410,"foldable":false},"model":{"status":"CONTRADICTED","fields":["weight_g","foldable"]},"expected":"STEP_UP"},
+  {"name":"missing model item","instruction":"Comfortable","constraint":{"id":"comfortable","text":"comfortable"},"evidence":{"padding":"memory foam"},"model":null,"expected":"STEP_UP"}
+]
